@@ -1,0 +1,347 @@
+{
+  "schema_version": "1.0",
+  "notes": [
+    "mass_kg_per_m çıplak çelik kütlesidir. Galvaniz kaplama kütlesi DAHİL DEĞİLDİR.",
+    "Bu değerler teorik birim kütledir; tedarikçi kantar ağırlığı veya gerçek sevkiyat ağırlığı değildir.",
+    "commercial_length_m V1 varsayılanıdır ve tedarikçi bazında geçersiz kılınabilir. Stok garantisi değildir.",
+    "default_waste V1'de tüm kalemlerde null'dır; fire yalnızca BOQ satırından gelir."
+  ],
+  "items": [
+    {
+      "code": "BOX-60-60-3-S235-B",
+      "family": "BOX",
+      "family_label": "Kutu profil",
+      "size": "60×60×3",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "5.19",
+      "mass_source": {
+        "standard": "EN 10219-2:2019",
+        "reference": "Tablo B.2 — kare içi boş kesit nominal özellikleri",
+        "method": "table",
+        "note": "Soğuk şekillendirilmiş ERW kutu profil. Köşe yarıçapı 2t."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Türkiye kutu profil stok boyu",
+        "reference": "Üretici/distribütör standart boy beyanı (6 m standart, 12 m sipariş üzerine)",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10219-2",
+      "manufacturing": "cold-formed",
+      "default_waste": null
+    },
+    {
+      "code": "BOX-80-80-3-S235-B",
+      "family": "BOX",
+      "family_label": "Kutu profil",
+      "size": "80×80×3",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "7.07",
+      "mass_source": {
+        "standard": "EN 10219-2:2019",
+        "reference": "Tablo B.2 — kare içi boş kesit nominal özellikleri",
+        "method": "table",
+        "note": "Soğuk şekillendirilmiş ERW kutu profil. Köşe yarıçapı 2t."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Türkiye kutu profil stok boyu",
+        "reference": "Üretici/distribütör standart boy beyanı (6 m standart, 12 m sipariş üzerine)",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10219-2",
+      "manufacturing": "cold-formed",
+      "default_waste": null
+    },
+    {
+      "code": "BOX-100-4-S235-B",
+      "family": "BOX",
+      "family_label": "Kutu profil",
+      "size": "100×100×4",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "11.70",
+      "mass_source": {
+        "standard": "EN 10219-2:2019",
+        "reference": "Tablo B.2 — kare içi boş kesit nominal özellikleri",
+        "method": "table",
+        "note": "Kesit formülüyle bağımsız doğrulandı: 11.73 kg/m (fark %0.3)."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Türkiye kutu profil stok boyu",
+        "reference": "Üretici/distribütör standart boy beyanı (6 m standart, 12 m sipariş üzerine)",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10219-2",
+      "manufacturing": "cold-formed",
+      "default_waste": null
+    },
+    {
+      "code": "BOX-100-4-S235-G",
+      "family": "BOX",
+      "family_label": "Kutu profil",
+      "size": "100×100×4",
+      "grade": "S235",
+      "coating": "galvaniz",
+      "mass_kg_per_m": "11.70",
+      "mass_source": {
+        "standard": "EN 10219-2:2019",
+        "reference": "Tablo B.2 — çıplak çelik kesit özellikleri",
+        "method": "table",
+        "note": "ÇIPLAK çelik kütlesi. Sıcak daldırma galvaniz kaplama kütlesi dahil değildir."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Galvaniz kutu profil standart boyu",
+        "reference": "Galvaniz kutu profil üretici beyanı (6 m)",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10219-2",
+      "manufacturing": "cold-formed",
+      "default_waste": null
+    },
+    {
+      "code": "BOX-150-100-5-S235-B",
+      "family": "BOX",
+      "family_label": "Kutu profil",
+      "size": "150×100×5",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "18.30",
+      "mass_source": {
+        "standard": "EN 10219-2:2019",
+        "reference": "Tablo B.3 — dikdörtgen içi boş kesit nominal özellikleri",
+        "method": "table",
+        "note": "Soğuk şekillendirilmiş (EN 10219). Sıcak işlem görmüş EN 10210 karşılığı 18.6 kg/m'dir ve KULLANILMAZ."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Türkiye kutu profil stok boyu",
+        "reference": "Üretici/distribütör standart boy beyanı (6 m standart, 12 m sipariş üzerine)",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10219-2",
+      "manufacturing": "cold-formed",
+      "default_waste": null
+    },
+    {
+      "code": "IPE-200-S235",
+      "family": "IPE",
+      "family_label": "IPE",
+      "size": "200",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "22.40",
+      "mass_source": {
+        "standard": "EN 10365",
+        "reference": "IPE kesit tablosu — nominal kütle",
+        "method": "table",
+        "note": null
+      },
+      "commercial_length_m": "12",
+      "length_source": {
+        "basis": "Sıcak haddelenmiş profil stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 12 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10365",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "IPE-240-S355",
+      "family": "IPE",
+      "family_label": "IPE",
+      "size": "240",
+      "grade": "S355",
+      "coating": "siyah",
+      "mass_kg_per_m": "30.70",
+      "mass_source": {
+        "standard": "EN 10365",
+        "reference": "IPE kesit tablosu — nominal kütle",
+        "method": "table",
+        "note": null
+      },
+      "commercial_length_m": "12",
+      "length_source": {
+        "basis": "Sıcak haddelenmiş profil stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 12 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10365",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "HEA-160-S235",
+      "family": "HEA",
+      "family_label": "HEA",
+      "size": "160",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "30.40",
+      "mass_source": {
+        "standard": "EN 10365",
+        "reference": "HEA kesit tablosu — nominal kütle",
+        "method": "table",
+        "note": null
+      },
+      "commercial_length_m": "12",
+      "length_source": {
+        "basis": "Sıcak haddelenmiş profil stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 12 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10365",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "HEA-200-S235",
+      "family": "HEA",
+      "family_label": "HEA",
+      "size": "200",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "42.30",
+      "mass_source": {
+        "standard": "EN 10365",
+        "reference": "HEA kesit tablosu — nominal kütle",
+        "method": "table",
+        "note": null
+      },
+      "commercial_length_m": "12",
+      "length_source": {
+        "basis": "Sıcak haddelenmiş profil stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 12 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10365",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "UPN-100-S235",
+      "family": "UPN",
+      "family_label": "UPN",
+      "size": "100",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "10.60",
+      "mass_source": {
+        "standard": "EN 10279",
+        "reference": "UPN kanal kesit tablosu — nominal kütle",
+        "method": "table",
+        "note": "Eğimli başlıklı kanal; kesit alanı üretici tablosundan alınır."
+      },
+      "commercial_length_m": "12",
+      "length_source": {
+        "basis": "Sıcak haddelenmiş kanal stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 12 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10279",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "UPN-160-S235",
+      "family": "UPN",
+      "family_label": "UPN",
+      "size": "160",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "18.80",
+      "mass_source": {
+        "standard": "EN 10279",
+        "reference": "UPN kanal kesit tablosu — nominal kütle",
+        "method": "table",
+        "note": "Eğimli başlıklı kanal; kesit alanı üretici tablosundan alınır."
+      },
+      "commercial_length_m": "12",
+      "length_source": {
+        "basis": "Sıcak haddelenmiş kanal stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 12 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10279",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "FLAT-40x5-S235-B",
+      "family": "FLAT",
+      "family_label": "Lama",
+      "size": "40×5",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "1.570",
+      "mass_source": {
+        "standard": "EN 10058",
+        "reference": "Lama ölçü standardı + 7.85 kg/dm³ yoğunluk",
+        "method": "formula",
+        "note": "2.00 cm² × 0.785 = 1.570 kg/m. Yuvarlatma yok, geometri tam."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Lama stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 6 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10058",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "FLAT-40x5-S235-G",
+      "family": "FLAT",
+      "family_label": "Lama",
+      "size": "40×5",
+      "grade": "S235",
+      "coating": "galvaniz",
+      "mass_kg_per_m": "1.570",
+      "mass_source": {
+        "standard": "EN 10058",
+        "reference": "Lama ölçü standardı + 7.85 kg/dm³ yoğunluk (çıplak çelik)",
+        "method": "formula",
+        "note": "ÇIPLAK çelik kütlesi. Galvaniz kaplama kütlesi dahil değildir."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Lama stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 6 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10058",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    },
+    {
+      "code": "FLAT-50x6-S235-B",
+      "family": "FLAT",
+      "family_label": "Lama",
+      "size": "50×6",
+      "grade": "S235",
+      "coating": "siyah",
+      "mass_kg_per_m": "2.355",
+      "mass_source": {
+        "standard": "EN 10058",
+        "reference": "Lama ölçü standardı + 7.85 kg/dm³ yoğunluk",
+        "method": "formula",
+        "note": "3.00 cm² × 0.785 = 2.355 kg/m. Yuvarlatma yok, geometri tam."
+      },
+      "commercial_length_m": "6",
+      "length_source": {
+        "basis": "Lama stok boyu",
+        "reference": "Üretici beyanı: 6 m ve 12 m standart; V1 varsayılanı 6 m",
+        "note": "Tedarikçi bazında değişebilir; stok garantisi değildir."
+      },
+      "production_standard": "EN 10058",
+      "manufacturing": "hot-rolled",
+      "default_waste": null
+    }
+  ]
+}
