@@ -236,7 +236,7 @@ BuildFlow-AI/
 
 ## Gereksinimler
 
-- **Node.js** 22.12+ (geliştirmede 26.13.1 ile doğrulandı) ve **npm**
+- **Node.js** 22.22.2+ (geliştirmede 26.13.1 ile doğrulandı) ve **npm**
 - **Python** 3.12+ (geliştirmede 3.15.2 ile doğrulandı)
 
 ## Kurulum
@@ -341,7 +341,7 @@ kontrolü çalıştırır:
 | İş | Adımlar |
 |---|---|
 | `backend` | Python 3.12 · `pip install -e ".[dev]"` · `pytest` · `pyflakes app tests` |
-| `frontend` | Node 22.12 · `npm ci` · `npm test` · `npm run build` |
+| `frontend` | Node 22.22.2 · `npm ci` · `npm test` · `npm run build` |
 
 `pyflakes` backend'in `dev` bağımlılıkları arasındadır; `.[dev]` kurulumuyla
 birlikte gelir. Aynı komutlar yerelde de çalıştırılabilir.
