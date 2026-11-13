@@ -4,11 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "buildflow-ai-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "BuildFlow AI backend API"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
+    "fpdf2>=2.8",
+    "openpyxl>=3.1",
+    "python-multipart>=0.0.9",
     "uvicorn>=0.34",
     "pydantic-settings>=2.7",
 ]
@@ -16,12 +19,27 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3",
+    "pyflakes>=3.2",
     "httpx2>=2.16",
+    "pypdf>=5",
 ]
 
 [tool.setuptools]
-packages = ["app"]
+packages = [
+    "app",
+    "app.ai",
+    "app.api",
+    "app.domain",
+    "app.excel",
+    "app.reports",
+]
+
+[tool.setuptools.package-data]
+app = ["data/*.json"]
+"app.reports" = ["fonts/*.ttf", "fonts/*.txt"]
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]
