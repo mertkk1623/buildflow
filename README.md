@@ -5,7 +5,7 @@ malzeme listesine dönüştüren web uygulaması.
 
 [![CI](https://github.com/mertkk1623/buildflow/actions/workflows/ci.yml/badge.svg)](https://github.com/mertkk1623/buildflow/actions/workflows/ci.yml)
 
-![BuildFlow AI ana sayfa](docs/images/01-ana-sayfa.png)
+<img src="docs/images/buildflow-portfolio-cover.png" alt="BuildFlow AI — metrajdan satın almaya hazır malzeme listesine portföy kapağı" width="100%">
 
 ---
 
@@ -19,6 +19,8 @@ gerektirir.
 
 BuildFlow bu iş akışının tamamını **tek bir yönlendirilmiş süreçte** toplar.
 
+![BuildFlow AI ana sayfa](docs/images/01-ana-sayfa.png)
+
 Excel metrajınızı yükleyin; uygulama açıklamaları yorumlar, katalogla
 eşleştirir, belirsiz satırları size onaylatır ve fire, birim dönüşümü ve ticari
 boy yuvarlaması uygulanmış nihai listeyi Excel veya PDF olarak üretir.
@@ -28,11 +30,13 @@ boy yuvarlaması uygulanmış nihai listeyi Excel veya PDF olarak üretir.
 
 ## Nasıl çalışır
 
-![Metraj yükleme](docs/images/02-metraj-yukleme.png)
+<img src="docs/images/buildflow-workflow.png" alt="BuildFlow AI beş adımlı iş akışı: metraj yükleme, analiz, eşleştirme, hesaplama, dışa aktarma" width="100%">
 
 **01 · Metrajı yükle** — Belgelenmiş Excel şablonunu yükleyin. Şablonu
 uygulamadan indirebilirsiniz. Satırlar ve birimler sunucuda doğrulanır; hatalar
 hangi satırda neyin yanlış olduğunu söyler.
+
+![Metraj yükleme](docs/images/02-metraj-yukleme.png)
 
 ![Analiz](docs/images/03-analiz.png)
 
@@ -88,6 +92,8 @@ tasarım · kesim optimizasyonu ve nesting · fiyat, maliyet veya teklif hesabı
 kullanıcı hesabı, abonelik veya çoklu proje yönetimi · veritabanı.
 
 ## Örnek dosyalar ve çıktılar
+
+<img src="docs/images/buildflow-report-showcase.png" alt="BuildFlow AI hesaplama sonucu ve izlenebilir Excel/PDF rapor çıktısı" width="100%">
 
 Depoda gerçek uygulamadan üretilmiş iki şablon ve bir demo metrajı bulunur:
 
