@@ -1,80 +1,80 @@
-﻿# BuildFlow AI
+# BuildFlow AI
 
-Ä°nÅŸaat **metraj (BOQ)** dosyalarÄ±nÄ±, AI destekli malzeme tanÄ±ma ve ÅŸeffaf
-hesaplamalarla **incelenmiÅŸ ve satÄ±n almaya hazÄ±r bir malzeme listesine**
-dÃ¶nÃ¼ÅŸtÃ¼ren web uygulamasÄ±.
+İnşaat **metraj (BOQ)** dosyalarını, AI destekli malzeme tanıma ve şeffaf
+hesaplamalarla **incelenmiş ve satın almaya hazır bir malzeme listesine**
+dönüştüren web uygulaması.
 
-> KullanÄ±cÄ± bir BOQ yÃ¼kler. Uygulama malzeme aÃ§Ä±klamalarÄ±nÄ± yorumlar, malzeme
-> kataloÄŸuyla eÅŸleÅŸtirir, belirsiz eÅŸleÅŸmeleri kullanÄ±cÄ±ya onaylatÄ±r, malzeme
-> ihtiyacÄ±nÄ± hesaplar, tekrar eden kalemleri birleÅŸtirir ve Excel/PDF Ã§Ä±ktÄ±sÄ±
-> Ã¼retir.
+> Kullanıcı bir BOQ yükler. Uygulama malzeme açıklamalarını yorumlar, malzeme
+> kataloğuyla eşleştirir, belirsiz eşleşmeleri kullanıcıya onaylatır, malzeme
+> ihtiyacını hesaplar, tekrar eden kalemleri birleştirir ve Excel/PDF çıktısı
+> üretir.
 
-Bu bir inÅŸaat ERP'si, metraj/quantity-takeoff programÄ± veya statik tasarÄ±m
-aracÄ± deÄŸildir. V1 kapsamÄ± `ROADMAP.md` dosyasÄ±nda tanÄ±mlÄ±dÄ±r.
+Bu bir inşaat ERP'si, metraj/quantity-takeoff programı veya statik tasarım
+aracı değildir. V1 kapsamı `ROADMAP.md` dosyasında tanımlıdır.
 
 ## Durum
 
-**AÅŸama 4.7 â€” frontend gerÃ§ek backend'e baÄŸlandÄ±.** ArayÃ¼z artÄ±k prototip veri
-kullanmÄ±yor: ÅŸablon indirme, Excel yÃ¼kleme/analiz, AI Ã¶nerilerinin onayÄ±,
-hesaplama ve Excel/PDF raporu uÃ§tan uca gerÃ§ek FastAPI servisi Ã¼zerinden
-Ã§alÄ±ÅŸÄ±r.
+**Aşama 4.7 — frontend gerçek backend'e bağlandı.** Arayüz artık prototip veri
+kullanmıyor: şablon indirme, Excel yükleme/analiz, AI önerilerinin onayı,
+hesaplama ve Excel/PDF raporu uçtan uca gerçek FastAPI servisi üzerinden
+çalışır.
 
-| Endpoint | GÃ¶rev |
+| Endpoint | Görev |
 |---|---|
 | `GET /api/health` | Servis durumu |
-| `GET /api/template` | Standart metraj ÅŸablonunu indirir (`.xlsx`) |
-| `POST /api/analyze` | Excel yÃ¼kler, okur, eÅŸleÅŸtirir ve `pending` satÄ±rlar iÃ§in AI Ã¶nerisi dÃ¶ndÃ¼rÃ¼r |
-| `POST /api/calculate` | KullanÄ±cÄ± kararlarÄ±nÄ± doÄŸrular, satÄ±n alma listesini hesaplar |
-| `POST /api/report/excel` | AynÄ± hesaplamadan Excel satÄ±n alma raporu indirir |
-| `POST /api/report/pdf` | AynÄ± hesaplamadan PDF satÄ±n alma raporu indirir |
+| `GET /api/template` | Standart metraj şablonunu indirir (`.xlsx`) |
+| `POST /api/analyze` | Excel yükler, okur, eşleştirir ve `pending` satırlar için AI önerisi döndürür |
+| `POST /api/calculate` | Kullanıcı kararlarını doğrular, satın alma listesini hesaplar |
+| `POST /api/report/excel` | Aynı hesaplamadan Excel satın alma raporu indirir |
+| `POST /api/report/pdf` | Aynı hesaplamadan PDF satın alma raporu indirir |
 
-Frontend, bu altÄ± endpoint'in **tamamÄ±nÄ±** kullanÄ±r. KullanÄ±lmayan, planlanan ya
-da sahte endpoint yoktur. VeritabanÄ±, kullanÄ±cÄ± giriÅŸi ve tedarikÃ§i yÃ¶netimi
-V1 kapsamÄ± dÄ±ÅŸÄ±ndadÄ±r.
+Frontend, bu altı endpoint'in **tamamını** kullanır. Kullanılmayan, planlanan ya
+da sahte endpoint yoktur. Veritabanı, kullanıcı girişi ve tedarikçi yönetimi
+V1 kapsamı dışındadır.
 
-### AI eÅŸleÅŸtirme (AÅŸama 4.5)
+### AI eşleştirme (Aşama 4.5)
 
-AI **hesaplama yapmaz**. YalnÄ±zca BOQ aÃ§Ä±klamasÄ±nÄ± mevcut katalog adaylarÄ±yla
-eÅŸleÅŸtirir ve sonucu bir **Ã¶neri** olarak dÃ¶ndÃ¼rÃ¼r.
+AI **hesaplama yapmaz**. Yalnızca BOQ açıklamasını mevcut katalog adaylarıyla
+eşleştirir ve sonucu bir **öneri** olarak döndürür.
 
-- VarsayÄ±lan saÄŸlayÄ±cÄ± `none`: AI kapalÄ±dÄ±r, hiÃ§bir aÄŸ Ã§aÄŸrÄ±sÄ± yapÄ±lmaz ve
-  yanÄ±t deterministik sonuÃ§la birebir aynÄ± kalÄ±r.
-- AI yalnÄ±zca `pending` satÄ±rlar iÃ§in Ã§aÄŸrÄ±lÄ±r; `rule`/`excluded`/`invalid`
-  satÄ±rlarda hiÃ§ Ã§aÄŸrÄ±lmaz.
-- AI'ya **yalnÄ±zca** aÃ§Ä±klama, bilinen dÃ¶rt Ã¶zellik (aile/Ã¶lÃ§Ã¼/kalite/kaplama)
-  ve aday Ã¼rÃ¼nlerin tanÄ±tÄ±cÄ± Ã¶zellikleri gÃ¶nderilir. Miktar, birim, fire,
-  aÄŸÄ±rlÄ±k ve maliyet ne istekte ne yanÄ±tta yer alÄ±r.
-- YanÄ±t katÄ± bir ÅŸemaya gÃ¶re doÄŸrulanÄ±r: `status` âˆˆ {`suggested`, `ambiguous`,
+- Varsayılan sağlayıcı `none`: AI kapalıdır, hiçbir ağ çağrısı yapılmaz ve
+  yanıt deterministik sonuçla birebir aynı kalır.
+- AI yalnızca `pending` satırlar için çağrılır; `rule`/`excluded`/`invalid`
+  satırlarda hiç çağrılmaz.
+- AI'ya **yalnızca** açıklama, bilinen dört özellik (aile/ölçü/kalite/kaplama)
+  ve aday ürünlerin tanıtıcı özellikleri gönderilir. Miktar, birim, fire,
+  ağırlık ve maliyet ne istekte ne yanıtta yer alır.
+- Yanıt katı bir şemaya göre doğrulanır: `status` ∈ {`suggested`, `ambiguous`,
   `no_match`}, `suggested_code`, `confidence`, `reason`. Fazla/eksik alan,
-  katalog dÄ±ÅŸÄ± kod, bozuk JSON veya tutarsÄ±z durum **reddedilir**.
-- **AI Ã¶nerisi hiÃ§bir zaman otomatik onaylanmaz.** `matched_code` alanÄ±
-  AI'dan etkilenmez; satÄ±r `pending` kalÄ±r. KullanÄ±cÄ± onaylar, reddeder veya
-  baÅŸka bir aday seÃ§er. KullanÄ±cÄ± kararÄ± `apply_decisions()` doÄŸrulamasÄ±ndan
-  geÃ§er.
-- AI eriÅŸilemezse (timeout, baÄŸlantÄ± hatasÄ±, bozuk yanÄ±t) analiz
-  deterministik sonuÃ§la tamamlanÄ±r; ilgili satÄ±rlar `pending` kalÄ±r ve
-  kullanÄ±cÄ±ya tek bir uyarÄ± gÃ¶sterilir.
+  katalog dışı kod, bozuk JSON veya tutarsız durum **reddedilir**.
+- **AI önerisi hiçbir zaman otomatik onaylanmaz.** `matched_code` alanı
+  AI'dan etkilenmez; satır `pending` kalır. Kullanıcı onaylar, reddeder veya
+  başka bir aday seçer. Kullanıcı kararı `apply_decisions()` doğrulamasından
+  geçer.
+- AI erişilemezse (timeout, bağlantı hatası, bozuk yanıt) analiz
+  deterministik sonuçla tamamlanır; ilgili satırlar `pending` kalır ve
+  kullanıcıya tek bir uyarı gösterilir.
 
-AI'yÄ± etkinleÅŸtirmek iÃ§in `.env` dosyasÄ±nda:
+AI'yı etkinleştirmek için `.env` dosyasında:
 
 ```ini
 BUILDFLOW_AI_PROVIDER=openai-compatible
 BUILDFLOW_AI_BASE_URL=https://api.openai.com/v1
 BUILDFLOW_AI_MODEL=gpt-4o-mini
-BUILDFLOW_AI_API_KEY=...          # yalnÄ±zca ortam deÄŸiÅŸkeninden okunur
+BUILDFLOW_AI_API_KEY=...          # yalnızca ortam değişkeninden okunur
 BUILDFLOW_AI_TIMEOUT_SECONDS=10
 ```
 
-API anahtarÄ± yanÄ±tta, hata mesajÄ±nda ve logda **gÃ¶rÃ¼nmez**. Eksik ya da
-geÃ§ersiz yapÄ±landÄ±rma uygulamayÄ± durdurmaz; sunucu uyarÄ± loglar ve AI'yÄ±
-devre dÄ±ÅŸÄ± bÄ±rakÄ±r.
+API anahtarı yanıtta, hata mesajında ve logda **görünmez**. Eksik ya da
+geçersiz yapılandırma uygulamayı durdurmaz; sunucu uyarı loglar ve AI'yı
+devre dışı bırakır.
 
-## Raporlama (AÅŸama 4.6)
+## Raporlama (Aşama 4.6)
 
 `POST /api/report/excel` ve `POST /api/report/pdf`, `POST /api/calculate` ile
-**aynÄ±** istek gÃ¶vdesini alÄ±r ve **aynÄ±** hesap Ã§ekirdeÄŸini Ã§alÄ±ÅŸtÄ±rÄ±r. Rapor
-katmanÄ± hesap yapmaz; miktar, fire, aÄŸÄ±rlÄ±k ve ticari boy deÄŸerleri olduÄŸu
-gibi taÅŸÄ±nÄ±r. BÃ¶ylece Ã¼Ã§ endpoint birbirinden ayrÄ±ÅŸamaz.
+**aynı** istek gövdesini alır ve **aynı** hesap çekirdeğini çalıştırır. Rapor
+katmanı hesap yapmaz; miktar, fire, ağırlık ve ticari boy değerleri olduğu
+gibi taşınır. Böylece üç endpoint birbirinden ayrışamaz.
 
 ```powershell
 # Excel raporu
@@ -88,129 +88,129 @@ curl.exe -X POST http://127.0.0.1:8000/api/report/pdf `
   -d "@calculate-request.json" -o satin-alma.pdf
 ```
 
-OnaylanmÄ±ÅŸ kalem yoksa endpoint **422 `report-empty`** dÃ¶ner; boÅŸ bir
-"satÄ±n alma listesi" Ã¼retilmez. Kararlar geÃ§ersizse `/api/calculate` ile aynÄ±
-hata gÃ¶vdesi (409) dÃ¶ner.
+Onaylanmış kalem yoksa endpoint **422 `report-empty`** döner; boş bir
+"satın alma listesi" üretilmez. Kararlar geçersizse `/api/calculate` ile aynı
+hata gövdesi (409) döner.
 
-### Rapor iÃ§eriÄŸi
+### Rapor içeriği
 
-Her iki biÃ§im de aynÄ± `Report` nesnesinden Ã¼retilir:
+Her iki biçim de aynı `Report` nesnesinden üretilir:
 
-- **Ã–zet** â€” satÄ±r/kalem/birleÅŸme sayÄ±larÄ±, toplam sipariÅŸ uzunluÄŸu, bilinen
-  teorik aÄŸÄ±rlÄ±k, FULL/PARTIAL daÄŸÄ±lÄ±mÄ±.
-- **SatÄ±n alma listesi** â€” malzeme kodu, aÃ§Ä±klama, kaynak BOQ satÄ±rlarÄ±, net,
-  fire, brÃ¼t, ticari boy, sipariÅŸ adedi, sipariÅŸ uzunluÄŸu, artan miktar,
-  teorik aÄŸÄ±rlÄ±k, FULL/PARTIAL, eksik bilgi ve uyarÄ±lar. Excel'de kalemler
-  malzeme ailesine gÃ¶re gruplanÄ±r ve her ailede alt toplam bandÄ± bulunur.
-- **Kaynak BOQ satÄ±rlarÄ±** â€” her kalemin hangi satÄ±rlardan oluÅŸtuÄŸu
-  (izlenebilirlik), satÄ±r bazÄ±nda miktar/fire/brÃ¼t ile.
-- **Hesaba alÄ±nmayanlar** â€” onay bekleyen, reddedilen ve kapsam dÄ±ÅŸÄ± satÄ±rlar
-  gerekÃ§eleriyle.
+- **Özet** — satır/kalem/birleşme sayıları, toplam sipariş uzunluğu, bilinen
+  teorik ağırlık, FULL/PARTIAL dağılımı.
+- **Satın alma listesi** — malzeme kodu, açıklama, kaynak BOQ satırları, net,
+  fire, brüt, ticari boy, sipariş adedi, sipariş uzunluğu, artan miktar,
+  teorik ağırlık, FULL/PARTIAL, eksik bilgi ve uyarılar. Excel'de kalemler
+  malzeme ailesine göre gruplanır ve her ailede alt toplam bandı bulunur.
+- **Kaynak BOQ satırları** — her kalemin hangi satırlardan oluştuğu
+  (izlenebilirlik), satır bazında miktar/fire/brüt ile.
+- **Hesaba alınmayanlar** — onay bekleyen, reddedilen ve kapsam dışı satırlar
+  gerekçeleriyle.
 
-Raporlarda iki sÄ±nÄ±r aÃ§Ä±kÃ§a yazÄ±lÄ±r:
+Raporlarda iki sınır açıkça yazılır:
 
-1. AÄŸÄ±rlÄ±k, katalogdaki **teorik Ã§Ä±plak Ã§elik kg/m** deÄŸerine dayalÄ±dÄ±r;
-   kantar veya sevkiyat aÄŸÄ±rlÄ±ÄŸÄ± deÄŸildir.
-2. BuildFlow bu aÅŸamada **kesim optimizasyonu veya nesting yapmaz**; sipariÅŸ
-   miktarlarÄ± ticari boya yuvarlanmÄ±ÅŸ teorik ihtiyaÃ§tÄ±r.
+1. Ağırlık, katalogdaki **teorik çıplak çelik kg/m** değerine dayalıdır;
+   kantar veya sevkiyat ağırlığı değildir.
+2. BuildFlow bu aşamada **kesim optimizasyonu veya nesting yapmaz**; sipariş
+   miktarları ticari boya yuvarlanmış teorik ihtiyaçtır.
 
-### Bilinmeyen deÄŸer kuralÄ±
+### Bilinmeyen değer kuralı
 
-PARTIAL bir sonuÃ§ta bilinmeyen alan **asla sÄ±fÄ±r gÃ¶sterilmez**: Excel'de hÃ¼cre
-boÅŸ bÄ±rakÄ±lÄ±r, PDF'te `â€”` yer tutucusu kullanÄ±lÄ±r. HiÃ§bir grubun aÄŸÄ±rlÄ±ÄŸÄ±
-bilinmiyorsa Ã¶zet aÄŸÄ±rlÄ±k alanÄ± da boÅŸ kalÄ±r ve "AÄŸÄ±rlÄ±k durumu: KISMÄ°"
-uyarÄ±sÄ± gÃ¶rÃ¼nÃ¼r.
+PARTIAL bir sonuçta bilinmeyen alan **asla sıfır gösterilmez**: Excel'de hücre
+boş bırakılır, PDF'te `—` yer tutucusu kullanılır. Hiçbir grubun ağırlığı
+bilinmiyorsa özet ağırlık alanı da boş kalır ve "Ağırlık durumu: KISMİ"
+uyarısı görünür.
 
-### KÃ¼tÃ¼phaneler ve font
+### Kütüphaneler ve font
 
-| BaÄŸÄ±mlÄ±lÄ±k | GerekÃ§e |
+| Bağımlılık | Gerekçe |
 |---|---|
-| `openpyxl` (mevcut) | Excel yazÄ±mÄ±; zaten ÅŸablon Ã¼retiminde kullanÄ±lÄ±yordu. |
-| `fpdf2` | PDF Ã¼retimi. Saf Python, derleme gerektirmez, gÃ¶mÃ¼lÃ¼ TTF destekler; `reportlab`/`weasyprint` gibi aÄŸÄ±r ya da sistem kÃ¼tÃ¼phanesi isteyen alternatifler tercih edilmedi. |
-| `pypdf` (yalnÄ±zca geliÅŸtirme) | Testlerde PDF metnini Ã§Ä±karÄ±p TÃ¼rkÃ§e karakterleri ve sayfa numaralarÄ±nÄ± doÄŸrulamak iÃ§in. |
-| DejaVu Sans / Bold | `app/reports/fonts/` altÄ±nda projeye dahildir (Bitstream Vera tÃ¼revi Ã¶zgÃ¼r lisans, `LICENSE-DejaVu.txt`). Sistem fontlarÄ±na baÄŸÄ±mlÄ±lÄ±k yoktur. |
+| `openpyxl` (mevcut) | Excel yazımı; zaten şablon üretiminde kullanılıyordu. |
+| `fpdf2` | PDF üretimi. Saf Python, derleme gerektirmez, gömülü TTF destekler; `reportlab`/`weasyprint` gibi ağır ya da sistem kütüphanesi isteyen alternatifler tercih edilmedi. |
+| `pypdf` (yalnızca geliştirme) | Testlerde PDF metnini çıkarıp Türkçe karakterleri ve sayfa numaralarını doğrulamak için. |
+| DejaVu Sans / Bold | `app/reports/fonts/` altında projeye dahildir (Bitstream Vera türevi özgür lisans, `LICENSE-DejaVu.txt`). Sistem fontlarına bağımlılık yoktur. |
 
-`app/domain` ve `app/excel` bu aÅŸamada **deÄŸiÅŸtirilmedi**.
+`app/domain` ve `app/excel` bu aşamada **değiştirilmedi**.
 
-## Frontend entegrasyonu (AÅŸama 4.7)
+## Frontend entegrasyonu (Aşama 4.7)
 
-Frontend hiÃ§bir deÄŸeri kendi Ã¼retmez. Ekranlarda gÃ¶rÃ¼nen her sayÄ±, etiket ve
-durum sunucunun yanÄ±tÄ±ndan gelir; istemci yalnÄ±zca **biÃ§imlendirir**.
+Frontend hiçbir değeri kendi üretmez. Ekranlarda görünen her sayı, etiket ve
+durum sunucunun yanıtından gelir; istemci yalnızca **biçimlendirir**.
 
-### Veri akÄ±ÅŸÄ±
+### Veri akışı
 
 ```
-Excel â”€â”€â–¶ POST /api/analyze â”€â”€â–¶ satÄ±r kararlarÄ± (kullanÄ±cÄ±)
-                                      â”‚
-                                      â–¼
-                        POST /api/calculate â”€â”€â–¶ satÄ±n alma listesi
-                                      â”‚
-                                      â”œâ”€â”€â–¶ POST /api/report/excel
-                                      â””â”€â”€â–¶ POST /api/report/pdf
+Excel ──▶ POST /api/analyze ──▶ satır kararları (kullanıcı)
+                                      │
+                                      ▼
+                        POST /api/calculate ──▶ satın alma listesi
+                                      │
+                                      ├──▶ POST /api/report/excel
+                                      └──▶ POST /api/report/pdf
 ```
 
-1. **YÃ¼kle** â€” `GET /api/template` ÅŸablonu indirir; `POST /api/analyze`
-   dosyayÄ± yÃ¼kler. YanÄ±t satÄ±rlarÄ± `rule` / `pending` / `excluded` / `invalid`
-   olarak gelir. Deterministik eÅŸleÅŸmeler ile AI Ã¶nerileri ayrÄ± alanlardadÄ±r.
-2. **Analiz** â€” yalnÄ±zca okuma; sunucunun dÃ¶ndÃ¼rdÃ¼ÄŸÃ¼ daÄŸÄ±lÄ±m gÃ¶sterilir.
-3. **EÅŸleÅŸtirme** â€” `pending` satÄ±rlar iÃ§in kullanÄ±cÄ± aday seÃ§er, onaylar,
-   reddeder veya kararÄ±nÄ± sÄ±fÄ±rlar. **AI Ã¶nerisi otomatik onaylanmaz**; hiÃ§bir
-   aday varsayÄ±lan seÃ§ili gelmez.
-4. **Hesapla** â€” yalnÄ±zca ham satÄ±rlar (`source_row`, `boq_no`, `description`,
-   `quantity`, `unit`, `waste_percent`) ve kararlar gÃ¶nderilir. EÅŸleÅŸtirme
-   durumu, hesaplanmÄ±ÅŸ miktar veya aÄŸÄ±rlÄ±k **hiÃ§ gÃ¶nderilmez**.
-5. **DÄ±ÅŸa aktar** â€” rapor gÃ¶vdesi `/api/calculate` gÃ¶vdesiyle **birebir aynÄ±dÄ±r**;
-   dosya sunucuda Ã¼retilir, adÄ± `Content-Disposition` baÅŸlÄ±ÄŸÄ±ndan okunur.
+1. **Yükle** — `GET /api/template` şablonu indirir; `POST /api/analyze`
+   dosyayı yükler. Yanıt satırları `rule` / `pending` / `excluded` / `invalid`
+   olarak gelir. Deterministik eşleşmeler ile AI önerileri ayrı alanlardadır.
+2. **Analiz** — yalnızca okuma; sunucunun döndürdüğü dağılım gösterilir.
+3. **Eşleştirme** — `pending` satırlar için kullanıcı aday seçer, onaylar,
+   reddeder veya kararını sıfırlar. **AI önerisi otomatik onaylanmaz**; hiçbir
+   aday varsayılan seçili gelmez.
+4. **Hesapla** — yalnızca ham satırlar (`source_row`, `boq_no`, `description`,
+   `quantity`, `unit`, `waste_percent`) ve kararlar gönderilir. Eşleştirme
+   durumu, hesaplanmış miktar veya ağırlık **hiç gönderilmez**.
+5. **Dışa aktar** — rapor gövdesi `/api/calculate` gövdesiyle **birebir aynıdır**;
+   dosya sunucuda üretilir, adı `Content-Disposition` başlığından okunur.
 
-### Backend sÃ¶zleÅŸmesi tek kaynaktÄ±r
+### Backend sözleşmesi tek kaynaktır
 
-`src/types/api.ts`, `app/api/schemas.py`'nin birebir karÅŸÄ±lÄ±ÄŸÄ±dÄ±r. Kararlar
-backend'de `apply_decisions()` doÄŸrulamasÄ±ndan geÃ§er; istemciden gelen uydurma
-kod, katalog dÄ±ÅŸÄ± eÅŸleÅŸme veya hesaplanmÄ±ÅŸ alan sunucu tarafÄ±ndan reddedilir
-(`422` / `409`). Ã–lÃ§ekli deÄŸerler (Decimal) JSON'da **string** taÅŸÄ±nÄ±r â€”
-kayan nokta yuvarlamasÄ± oluÅŸmaz.
+`src/types/api.ts`, `app/api/schemas.py`'nin birebir karşılığıdır. Kararlar
+backend'de `apply_decisions()` doğrulamasından geçer; istemciden gelen uydurma
+kod, katalog dışı eşleşme veya hesaplanmış alan sunucu tarafından reddedilir
+(`422` / `409`). Ölçekli değerler (Decimal) JSON'da **string** taşınır —
+kayan nokta yuvarlaması oluşmaz.
 
-### Ortam deÄŸiÅŸkenleri
+### Ortam değişkenleri
 
-`frontend/.env.example` dosyasÄ±nÄ± `.env` olarak kopyalayÄ±n.
+`frontend/.env.example` dosyasını `.env` olarak kopyalayın.
 
-| DeÄŸiÅŸken | VarsayÄ±lan | GÃ¶rev |
+| Değişken | Varsayılan | Görev |
 |---|---|---|
-| `VITE_API_BASE_URL` | boÅŸ | BoÅŸsa istekler gÃ¶rece `/api/...` gider ve Vite proxy'si devreye girer. Doluysa (Ã¶r. `http://127.0.0.1:8000`) doÄŸrudan o adrese gidilir ve backend CORS izin listesi gerekir. |
-| `VITE_PROXY_TARGET` | `http://127.0.0.1:8000` | YalnÄ±zca geliÅŸtirme sunucusunun proxy hedefi. Ãœretim derlemesini etkilemez. |
+| `VITE_API_BASE_URL` | boş | Boşsa istekler görece `/api/...` gider ve Vite proxy'si devreye girer. Doluysa (ör. `http://127.0.0.1:8000`) doğrudan o adrese gidilir ve backend CORS izin listesi gerekir. |
+| `VITE_PROXY_TARGET` | `http://127.0.0.1:8000` | Yalnızca geliştirme sunucusunun proxy hedefi. Üretim derlemesini etkilemez. |
 
-GeliÅŸtirmede varsayÄ±lan davranÄ±ÅŸ **proxy**'dir: tarayÄ±cÄ± isteÄŸi aynÄ± origin'den
+Geliştirmede varsayılan davranış **proxy**'dir: tarayıcı isteği aynı origin'den
 gider, CORS gerekmez. `VITE_API_BASE_URL` doldurulursa backend'de
 `BUILDFLOW_CORS_ORIGINS` listesine frontend adresi eklenmelidir; joker (`*`)
 kabul edilmez.
 
-### Hata yÃ¶netimi
+### Hata yönetimi
 
-TÃ¼m hatalar tek `ApiError` tipinde toplanÄ±r (sunucu zarfÄ±, baÄŸlantÄ± hatasÄ±,
-iptal). Ekranlarda yalnÄ±zca sunucunun gÃ¼venli metinleri gÃ¶sterilir â€” stack
-trace, dosya yolu, saÄŸlayÄ±cÄ± anahtarÄ± veya ham gÃ¶vde asla gÃ¶sterilmez.
-KarÅŸÄ±lanan durumlar: geÃ§ersiz/bÃ¼yÃ¼k Excel, desteklenmeyen biÃ§im, eksik veya
-hatalÄ± kolon, geÃ§ersiz karar, backend'e ulaÅŸÄ±lamamasÄ±, AI saÄŸlayÄ±cÄ± hatasÄ±,
-PARTIAL (KISMÄ°) hesaplama ve rapor Ã¼retim hatasÄ±.
+Tüm hatalar tek `ApiError` tipinde toplanır (sunucu zarfı, bağlantı hatası,
+iptal). Ekranlarda yalnızca sunucunun güvenli metinleri gösterilir — stack
+trace, dosya yolu, sağlayıcı anahtarı veya ham gövde asla gösterilmez.
+Karşılanan durumlar: geçersiz/büyük Excel, desteklenmeyen biçim, eksik veya
+hatalı kolon, geçersiz karar, backend'e ulaşılamaması, AI sağlayıcı hatası,
+PARTIAL (KISMİ) hesaplama ve rapor üretim hatası.
 
-### Frontend komutlarÄ±
+### Frontend komutları
 
 ```powershell
 cd frontend
 npm install          # ilk kurulum
-npm run dev          # geliÅŸtirme sunucusu (http://localhost:5173)
-npm test             # Vitest - 177 test, 9 dosya
+npm run dev          # geliştirme sunucusu (http://localhost:5173)
+npm test             # Vitest - 178 test, 9 dosya
 npm run build        # tsc -b && vite build
 ```
 
-> PowerShell `npm` betiklerini engelliyorsa `npm.cmd` kullanÄ±n.
+> PowerShell `npm` betiklerini engelliyorsa `npm.cmd` kullanın.
 
-### Test yaklaÅŸÄ±mÄ±
+### Test yaklaşımı
 
-Testler aÄŸ Ã§aÄŸrÄ±sÄ±nÄ± `fetch` dÃ¼zeyinde taklit eder; sahte state kurulmaz. Her
-test "ekranda ne var" ile "sunucuya ne gitti"yi aynÄ± akÄ±ÅŸta doÄŸrular. Beklenmeyen
-bir istek testi aÃ§Ä±kÃ§a dÃ¼ÅŸÃ¼rÃ¼r, bÃ¶ylece sessiz sahte baÅŸarÄ± oluÅŸmaz. Fixture'lar
-elle uydurulmadÄ±: gerÃ§ek backend yanÄ±tlarÄ±ndan Ã¼retildi (`src/test/fixtures/`).
+Testler ağ çağrısını `fetch` düzeyinde taklit eder; sahte state kurulmaz. Her
+test "ekranda ne var" ile "sunucuya ne gitti"yi aynı akışta doğrular. Beklenmeyen
+bir istek testi açıkça düşürür, böylece sessiz sahte başarı oluşmaz. Fixture'lar
+elle uydurulmadı: gerçek backend yanıtlarından üretildi (`src/test/fixtures/`).
 
 ## Teknoloji
 
@@ -221,23 +221,23 @@ elle uydurulmadÄ±: gerÃ§ek backend yanÄ±tlarÄ±ndan Ã¼retildi (`src/tes
 | Backend | Python + FastAPI |
 | Raporlama | openpyxl (Excel) + fpdf2 (PDF) |
 | Test | Pytest (backend) + Vitest (frontend) |
-| SÃ¼rÃ¼m kontrolÃ¼ | Git + GitHub |
+| Sürüm kontrolü | Git + GitHub |
 
-VeritabanÄ±, kimlik doÄŸrulama ve abonelik altyapÄ±sÄ± **V1 kapsamÄ±nda deÄŸildir.**
+Veritabanı, kimlik doğrulama ve abonelik altyapısı **V1 kapsamında değildir.**
 
-## KlasÃ¶r yapÄ±sÄ±
+## Klasör yapısı
 
 ```
 BuildFlow-AI/
-â”œâ”€â”€ ROADMAP.md          ÃœrÃ¼n ve geliÅŸtirme planÄ± (tek doÄŸruluk kaynaÄŸÄ±)
-â”œâ”€â”€ frontend/           React + TypeScript + Tailwind
-â””â”€â”€ backend/            FastAPI + Pytest
+├── ROADMAP.md          Ürün ve geliştirme planı (tek doğruluk kaynağı)
+├── frontend/           React + TypeScript + Tailwind
+└── backend/            FastAPI + Pytest
 ```
 
 ## Gereksinimler
 
-- **Node.js** 22.12+ (geliÅŸtirmede 26.13.1 ile doÄŸrulandÄ±) ve **npm**
-- **Python** 3.12+ (geliÅŸtirmede 3.15.2 ile doÄŸrulandÄ±)
+- **Node.js** 22.12+ (geliştirmede 26.13.1 ile doğrulandı) ve **npm**
+- **Python** 3.12+ (geliştirmede 3.15.2 ile doğrulandı)
 
 ## Kurulum
 
@@ -250,22 +250,22 @@ python -m venv .venv
 python -m pip install -e ".[dev]"
 ```
 
-Ortam deÄŸiÅŸkenleri gerekirse `.env.example` dosyasÄ±nÄ± `.env` olarak kopyalayÄ±n.
-`.env` dosyasÄ± Git'e eklenmez.
+Ortam değişkenleri gerekirse `.env.example` dosyasını `.env` olarak kopyalayın.
+`.env` dosyası Git'e eklenmez.
 
 ### 2. Frontend
 
 ```powershell
 cd frontend
 npm install
-Copy-Item .env.example .env   # isteÄŸe baÄŸlÄ±; varsayÄ±lanlar yerel backend'e uyar
+Copy-Item .env.example .env   # isteğe bağlı; varsayılanlar yerel backend'e uyar
 ```
 
-## Ã‡alÄ±ÅŸtÄ±rma
+## Çalıştırma
 
-Ä°ki terminal kullanÄ±n.
+İki terminal kullanın.
 
-**Terminal 1 â€” backend:**
+**Terminal 1 — backend:**
 
 ```powershell
 cd backend
@@ -274,42 +274,42 @@ uvicorn app.main:app --reload
 ```
 
 - API: <http://127.0.0.1:8000>
-- SaÄŸlÄ±k kontrolÃ¼: <http://127.0.0.1:8000/api/health>
-- EtkileÅŸimli dokÃ¼mantasyon: <http://127.0.0.1:8000/docs>
+- Sağlık kontrolü: <http://127.0.0.1:8000/api/health>
+- Etkileşimli dokümantasyon: <http://127.0.0.1:8000/docs>
 
-Ã–rnek istekler:
+Örnek istekler:
 
 ```powershell
-# Metraj dosyasÄ±nÄ± analiz et
+# Metraj dosyasını analiz et
 curl.exe -F "file=@..\templates\ornek_metraj.xlsx" http://127.0.0.1:8000/api/analyze
 
-# Åablonu indir
+# Şablonu indir
 curl.exe -o metraj_sablonu.xlsx http://127.0.0.1:8000/api/template
 ```
 
-`POST /api/calculate` gÃ¶vdesi, analiz yanÄ±tÄ±ndaki **ham** satÄ±rlar (yalnÄ±zca
+`POST /api/calculate` gövdesi, analiz yanıtındaki **ham** satırlar (yalnızca
 `source_row`, `boq_no`, `description`, `quantity`, `unit`, `waste_percent`) ve
-kullanÄ±cÄ± kararlarÄ±ndan (`boq_no`, `action`, `code`, `reason`) oluÅŸur. Sunucu
-eÅŸleÅŸtirmeyi ve hesabÄ± her istekte yeniden yapar; istemciden gelen eÅŸleÅŸtirme
-durumu veya hesaplanmÄ±ÅŸ deÄŸer kabul edilmez.
+kullanıcı kararlarından (`boq_no`, `action`, `code`, `reason`) oluşur. Sunucu
+eşleştirmeyi ve hesabı her istekte yeniden yapar; istemciden gelen eşleştirme
+durumu veya hesaplanmış değer kabul edilmez.
 
-**Terminal 2 â€” frontend:**
+**Terminal 2 — frontend:**
 
 ```powershell
 cd frontend
 npm run dev
 ```
 
-ArayÃ¼z: <http://localhost:5173>
+Arayüz: <http://localhost:5173>
 
-Vite, `/api` isteklerini `http://127.0.0.1:8000` adresine yÃ¶nlendirir; bu
-sayede geliÅŸtirme sÄ±rasÄ±nda tarayÄ±cÄ± isteÄŸi aynÄ± origin'den gider. CORS
-yapÄ±landÄ±rmasÄ± yine de dar tutulur: yalnÄ±zca `BUILDFLOW_CORS_ORIGINS` iÃ§inde
-aÃ§Ä±kÃ§a listelenen origin'ler izinlidir (varsayÄ±lan: Vite 5173). Joker (`*`)
+Vite, `/api` isteklerini `http://127.0.0.1:8000` adresine yönlendirir; bu
+sayede geliştirme sırasında tarayıcı isteği aynı origin'den gider. CORS
+yapılandırması yine de dar tutulur: yalnızca `BUILDFLOW_CORS_ORIGINS` içinde
+açıkça listelenen origin'ler izinlidir (varsayılan: Vite 5173). Joker (`*`)
 reddedilir.
 
 > PowerShell `npm` komutunu engelliyorsa (`running scripts is disabled`)
-> `npm.cmd run dev` kullanÄ±n.
+> `npm.cmd run dev` kullanın.
 
 ## Testler
 
@@ -322,37 +322,37 @@ pytest
 # Backend lint
 python -m pyflakes app tests
 
-# Frontend - 177 test / 9 dosya
+# Frontend - 178 test / 9 dosya
 cd ..\frontend
 npm test
 
-# Frontend Ã¼retim derlemesi
+# Frontend üretim derlemesi
 npm run build
 ```
 
-AyrÄ±ntÄ±lÄ± doÄŸrulama (gerÃ§ek `.xlsx` yÃ¼kleme, Excel/PDF indirme, hata
-senaryolarÄ±) iÃ§in bkz. **Frontend entegrasyonu (AÅŸama 4.7)** bÃ¶lÃ¼mÃ¼.
+Ayrıntılı doğrulama (gerçek `.xlsx` yükleme, Excel/PDF indirme, hata
+senaryoları) için bkz. **Frontend entegrasyonu (Aşama 4.7)** bölümü.
 
-### SÃ¼rekli entegrasyon
+### Sürekli entegrasyon
 
-`.github/workflows/ci.yml` her `main` push'unda ve pull request'te dÃ¶rt
-kontrolÃ¼ Ã§alÄ±ÅŸtÄ±rÄ±r:
+`.github/workflows/ci.yml` her `main` push'unda ve pull request'te dört
+kontrolü çalıştırır:
 
-| Ä°ÅŸ | AdÄ±mlar |
+| İş | Adımlar |
 |---|---|
-| `backend` | Python 3.12 Â· `pip install -e ".[dev]"` Â· `pytest` Â· `pyflakes app tests` |
-| `frontend` | Node 22.12 Â· `npm ci` Â· `npm test` Â· `npm run build` |
+| `backend` | Python 3.12 · `pip install -e ".[dev]"` · `pytest` · `pyflakes app tests` |
+| `frontend` | Node 22.12 · `npm ci` · `npm test` · `npm run build` |
 
-`pyflakes` backend'in `dev` baÄŸÄ±mlÄ±lÄ±klarÄ± arasÄ±ndadÄ±r; `.[dev]` kurulumuyla
-birlikte gelir. AynÄ± komutlar yerelde de Ã§alÄ±ÅŸtÄ±rÄ±labilir.
+`pyflakes` backend'in `dev` bağımlılıkları arasındadır; `.[dev]` kurulumuyla
+birlikte gelir. Aynı komutlar yerelde de çalıştırılabilir.
 
-## Yol haritasÄ±
+## Yol haritası
 
-GeliÅŸtirme sÄ±rasÄ± `ROADMAP.md` iÃ§inde tanÄ±mlÄ±dÄ±r:
+Geliştirme sırası `ROADMAP.md` içinde tanımlıdır:
 
-0. Proje kurulumu ve Ã¼rÃ¼n planÄ±
-1. SaaS arayÃ¼z prototipi
-2. Frontend uygulama iskeleti ve demo akÄ±ÅŸÄ±
+0. Proje kurulumu ve ürün planı
+1. SaaS arayüz prototipi
+2. Frontend uygulama iskeleti ve demo akışı
 3. Backend ve deterministik hesap motoru
-4. AI malzeme tanÄ±ma ve sonuÃ§ yorumlama
-5. DÄ±ÅŸa aktarma (Excel/PDF raporlama), son rÃ¶tuÅŸlar ve yayÄ±n
+4. AI malzeme tanıma ve sonuç yorumlama
+5. Dışa aktarma (Excel/PDF raporlama), son rötuşlar ve yayın
