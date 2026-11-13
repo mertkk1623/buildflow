@@ -12,11 +12,22 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 *.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# --- Test kapsamı (coverage) çıktıları ---
+coverage/
+.coverage
+.coverage.*
+htmlcov/
 
 # --- Environment / secrets ---
 .env
 .env.*
 !.env.example
+
+# --- Yerel araç yapılandırması (makineye özel, depoya girmez) ---
+opencode.json
 
 # --- Editor / OS ---
 .vscode/
