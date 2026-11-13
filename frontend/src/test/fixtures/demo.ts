@@ -457,6 +457,8 @@ export function makeAnalysis(
     ai?: Record<string, AiOut>
     warnings?: string[]
     ignoredColumns?: string[]
+    /** AI özetini birebir geçersiz kılmak için (ör. skipped_reason). */
+    aiSummary?: AiSummaryOut
   } = {},
 ): AnalyzeResponse {
   const ai = options.ai ?? {}
@@ -474,7 +476,7 @@ export function makeAnalysis(
       excluded: 4,
       invalid: 0,
     },
-    ai: options.ai ? summarizeAi(ai) : DEMO_AI_SUMMARY,
+    ai: options.aiSummary ?? (options.ai ? summarizeAi(ai) : DEMO_AI_SUMMARY),
     warnings: options.warnings ?? [],
     ignored_columns: options.ignoredColumns ?? [],
     sheet_name: 'Metraj',

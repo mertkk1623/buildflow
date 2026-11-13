@@ -102,6 +102,10 @@ export type AnalyzeView = {
   aiAmbiguous: number
   aiNoMatch: number
   aiErrors: number
+  /** AI açıkken iş yoksa nedeni (ör. `no-pending-rows`); iş varsa `null`. */
+  aiSkippedReason: 'no-pending-rows' | 'missing-row-identity' | null
+  /** Kullanıcıya gösterilecek AI atlama açıklaması. */
+  aiSkippedMessage: string | null
   warnings: string[]
   ignoredColumns: string[]
 }

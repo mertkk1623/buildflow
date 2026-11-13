@@ -166,6 +166,16 @@ class AiSummaryOut(ApiModel):
     ambiguous: int
     no_match: int
     errors: int
+    #: AI açıkken hiçbir satır değerlendirilmediyse nedeni; aksi hâlde
+    #: yanıttan **tamamen çıkarılır** (geriye dönük uyumluluk: eski
+    #: istemciler ve mevcut testler sözlüğü birebir karşılaştırır).
+    skipped_reason: (
+        Literal["no-pending-rows", "missing-row-identity"] | None
+    ) = Field(default=None, exclude_if=lambda value: value is None)
+    #: ``skipped_reason`` için kullanıcıya gösterilecek açıklama.
+    skipped_message: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class AnalyzeRow(ApiModel):
@@ -442,6 +452,15 @@ class SkippedRowOut(ApiModel):
     ] | None = None
     matched_code: str | None = None
     message: str
+    #: ``status == "excluded"`` iken **hangi** kuralın devreye girdiği.
+    #: Geriye dönük uyumlu: alan yalnızca anlamlıyken yanıtta bulunur.
+    exclusion_reason: (
+        Literal["waste", "unit", "catalog", "missing-mass"] | None
+    ) = Field(default=None, exclude_if=lambda value: value is None)
+    #: Dışlama nedeninin kısa etiketi (ör. "Fire tanımsız").
+    exclusion_reason_label: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class CalculationSummaryOut(ApiModel):

@@ -104,7 +104,8 @@ _SKIPPED_COLUMNS: Final[tuple[tuple[str, float, str, str | None], ...]] = (
     ("BOQ No", 12, "left", None),
     ("Açıklama", 42, "left", None),
     ("Durum", 16, "left", None),
-    ("Neden", 70, "left", None),
+    ("Neden kodu", 22, "left", None),
+    ("Neden", 56, "left", None),
 )
 
 
@@ -497,7 +498,11 @@ def _write_skipped(sheet: Worksheet, report: Report) -> None:
             row=row, column=2, value=item.description or None
         ).font = _BODY_FONT
         sheet.cell(row=row, column=3, value=item.reason_label).font = _BODY_FONT
-        sheet.cell(row=row, column=4, value=item.message).font = _BODY_FONT
+        # "Durum" jeneriktir ("Kapsam dışı"); gerçek neden burada ayrışır.
+        sheet.cell(
+            row=row, column=4, value=item.exclusion_reason_label or "—"
+        ).font = _BODY_FONT
+        sheet.cell(row=row, column=5, value=item.message).font = _BODY_FONT
         for column in range(1, len(_SKIPPED_COLUMNS) + 1):
             sheet.cell(row=row, column=column).border = _BORDER
             sheet.cell(row=row, column=column).alignment = _LEFT

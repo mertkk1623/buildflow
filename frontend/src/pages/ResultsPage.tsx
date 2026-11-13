@@ -352,6 +352,11 @@ export default function ResultsPage() {
                   )}
                 </span>
                 <span className="min-w-0 flex-1 text-sm text-steel-800">
+                  {row.exclusion_reason_label && (
+                    <span className="mb-0.5 block text-xs font-medium text-copper-700">
+                      {row.exclusion_reason_label}
+                    </span>
+                  )}
                   {row.message}
                 </span>
                 <Badge tone="warning" className="shrink-0">

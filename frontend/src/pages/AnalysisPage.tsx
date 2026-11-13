@@ -106,58 +106,79 @@ export default function AnalysisPage() {
             }
           />
           {aiEnabled ? (
-            <TableShell minWidth={520}>
-              <THead>
-                <TR>
-                  <TH>Ölçüt</TH>
-                  <TH align="right">Satır</TH>
-                  <TH>Anlamı</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {[
-                  {
-                    label: 'Değerlendirilen',
-                    value: analyzeView.aiEvaluated,
-                    note: 'Yalnızca onay bekleyen satırlar AI’ya gönderildi.',
-                  },
-                  {
-                    label: 'Öneri üretildi',
-                    value: analyzeView.aiSuggested,
-                    note: 'Öneri karar değildir; kullanıcı onayı gerekir.',
-                  },
-                  {
-                    label: 'Belirsiz',
-                    value: analyzeView.aiAmbiguous,
-                    note: 'Birden fazla aday geçerli; kullanıcı seçer.',
-                  },
-                  {
-                    label: 'Eşleşme yok',
-                    value: analyzeView.aiNoMatch,
-                    note: 'Katalogda uygun kalem bulunamadı.',
-                  },
-                  {
-                    label: 'Hata',
-                    value: analyzeView.aiErrors,
-                    note: 'AI hatası analizi durdurmadı; satır onay bekliyor.',
-                  },
-                ].map((item) => (
-                  <TR key={item.label}>
-                    <TD>
-                      <p className="font-medium text-steel-900">{item.label}</p>
-                    </TD>
-                    <TD align="right">
-                      <span className="tabular font-mono text-steel-900">
-                        {item.value}
-                      </span>
-                    </TD>
-                    <TD>
-                      <p className="text-xs text-steel-500">{item.note}</p>
-                    </TD>
+            <>
+              {analyzeView.aiSkippedReason && (
+                <CardBody className="border-b border-steel-200">
+                  <Alert
+                    tone="info"
+                    title="AI açık, ancak çağrılacak satır yok"
+                    icon={<IconInfo />}
+                  >
+                    {analyzeView.aiSkippedMessage ??
+                      'Bu dosyada onay bekleyen satır bulunmadığı için hiçbir AI çağrısı yapılmadı.'}
+                  </Alert>
+                  <p className="mt-2.5 text-xs text-steel-500">
+                    Bu bir hata değil: deterministik kural tüm satırları
+                    çözdüğünde veya satırlar kapsam dışı kaldığında AI devreye
+                    girmez ve ücretlendirme oluşmaz.
+                  </p>
+                </CardBody>
+              )}
+              <TableShell minWidth={520}>
+                <THead>
+                  <TR>
+                    <TH>Ölçüt</TH>
+                    <TH align="right">Satır</TH>
+                    <TH>Anlamı</TH>
                   </TR>
-                ))}
-              </TBody>
-            </TableShell>
+                </THead>
+                <TBody>
+                  {[
+                    {
+                      label: 'Değerlendirilen',
+                      value: analyzeView.aiEvaluated,
+                      note: 'Yalnızca onay bekleyen satırlar AI’ya gönderildi.',
+                    },
+                    {
+                      label: 'Öneri üretildi',
+                      value: analyzeView.aiSuggested,
+                      note: 'Öneri karar değildir; kullanıcı onayı gerekir.',
+                    },
+                    {
+                      label: 'Belirsiz',
+                      value: analyzeView.aiAmbiguous,
+                      note: 'Birden fazla aday geçerli; kullanıcı seçer.',
+                    },
+                    {
+                      label: 'Eşleşme yok',
+                      value: analyzeView.aiNoMatch,
+                      note: 'Katalogda uygun kalem bulunamadı.',
+                    },
+                    {
+                      label: 'Hata',
+                      value: analyzeView.aiErrors,
+                      note: 'AI hatası analizi durdurmadı; satır onay bekliyor.',
+                    },
+                  ].map((item) => (
+                    <TR key={item.label}>
+                      <TD>
+                        <p className="font-medium text-steel-900">
+                          {item.label}
+                        </p>
+                      </TD>
+                      <TD align="right">
+                        <span className="tabular font-mono text-steel-900">
+                          {item.value}
+                        </span>
+                      </TD>
+                      <TD>
+                        <p className="text-xs text-steel-500">{item.note}</p>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableShell>
+            </>
           ) : (
             <CardBody>
               <Alert tone="info" title="AI sağlayıcısı kapalı" icon={<IconInfo />}>

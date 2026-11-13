@@ -2,7 +2,7 @@
  * Satır içi ikon seti.
  *
  * `lucide-react` yerine bilinçli olarak küçük, elle yazılmış SVG seti:
- * yalnızca ihtiyaç duyulan 12 ikon var, ek bağımlılık yok.
+ * yalnızca ihtiyaç duyulan ikonlar var, ek bağımlılık yok.
  */
 
 type IconProps = {
@@ -88,6 +88,15 @@ export function IconFile({ className }: IconProps) {
     <svg {...svgProps(className)}>
       <path d="M13.5 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V8L13.5 3Z" />
       <path d="M13 3v5.5h5.5" />
+    </svg>
+  )
+}
+
+export function IconDownload({ className }: IconProps) {
+  return (
+    <svg {...svgProps(className)}>
+      <path d="M12 4v11M7 10l5 5 5-5" />
+      <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16" />
     </svg>
   )
 }

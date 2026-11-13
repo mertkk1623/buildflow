@@ -29,6 +29,7 @@ from app.ai.models import (
     AiEvaluation,
     AiMatchRequest,
     AiRunResult,
+    AiSkipReason,
     AiStatus,
     AiSuggestion,
 )
@@ -107,8 +108,16 @@ def evaluate_rows(
         if outcome.status is MatchStatus.PENDING
     ]
 
-    if not enabled or not pending:
-        return AiRunResult(enabled=enabled, provider=name)
+    if not enabled:
+        return AiRunResult(enabled=False, provider=name)
+
+    if not pending:
+        # AI yapılandırılmış ama iş yok: bu bir hata değil, bilgidir.
+        return AiRunResult(
+            enabled=True,
+            provider=name,
+            skipped_reason=AiSkipReason.NO_PENDING_ROWS.value,
+        )
 
     evaluations: dict[str, AiEvaluation] = {}
     warnings: list[str] = []

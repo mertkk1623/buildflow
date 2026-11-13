@@ -406,10 +406,11 @@ def _write_skipped(pdf: ReportPdf, report: Report) -> None:
     pdf.ln(1)
 
     columns = (
-        ("BOQ No", 22.0, "L"),
-        ("Açıklama", 70.0, "L"),
-        ("Durum", 30.0, "L"),
-        ("Neden", _BODY_WIDTH - 122.0, "L"),
+        ("BOQ No", 20.0, "L"),
+        ("Açıklama", 58.0, "L"),
+        ("Durum", 28.0, "L"),
+        ("Neden kodu", 34.0, "L"),
+        ("Neden", _BODY_WIDTH - 140.0, "L"),
     )
     pdf.set_font(_BOLD, size=7.2)
     pdf.set_text_color(*_WHITE)
@@ -427,11 +428,29 @@ def _write_skipped(pdf: ReportPdf, report: Report) -> None:
             item.boq_no,
             item.description or "—",
             item.reason_label,
-            item.message,
+            item.exclusion_reason_label or "—",
         )
-        for (_, width, align), value in zip(columns, cells, strict=True):
+        x = pdf.l_margin
+        y = pdf.get_y()
+        height = 0.0
+        for (_, width, align), value in zip(columns[:-1], cells, strict=True):
+            pdf.set_xy(x, y)
             pdf.cell(width, 6.0, value, align=align)
-        pdf.ln(6.0)
+            x += width
+        # Son sütun (Neden) artık uzun: satır yüksekliğini metne göre büyüt.
+        last_width = columns[-1][1]
+        pdf.set_xy(x, y)
+        pdf.multi_cell(
+            last_width,
+            4.2,
+            item.message,
+            align="L",
+            new_x="LMARGIN",
+            new_y="TOP",
+            max_line_height=4.2,
+        )
+        height = max(6.0, pdf.get_y() - y)
+        pdf.set_y(y + height)
 
 
 def _write_disclaimers(pdf: ReportPdf, report: Report) -> None:

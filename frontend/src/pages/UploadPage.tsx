@@ -8,11 +8,13 @@ import { Alert, Badge } from '../components/ui/Status'
 import {
   IconAlert,
   IconArrowRight,
+  IconDownload,
   IconFile,
   IconInfo,
   IconUpload,
 } from '../components/ui/icons'
 import { ApiErrorNotice, WarningList } from '../components/workflow/ApiErrorNotice'
+import { DEMO_METRAJ_FILE, EXAMPLE_FILES } from '../lib/examples'
 import { formatFileSize } from '../lib/format'
 import { cn } from '../lib/ui'
 import { useWorkflow } from '../state/WorkflowContext'
@@ -28,6 +30,10 @@ import { useWorkflow } from '../state/WorkflowContext'
 
 /** Sunucu sınırı: `BUILDFLOW_MAX_UPLOAD_BYTES`, varsayılan 10 MB. */
 const MAX_FILE_BYTES = 10 * 1024 * 1024
+
+/** Denemek için hazır dosyalar — ana sayfayla aynı kaynaktan gelir. */
+const DEMO_METRAJ = DEMO_METRAJ_FILE
+const DEMO_REPORTS = EXAMPLE_FILES.filter((file) => file.kind === 'rapor')
 
 const TEMPLATE_COLUMNS = [
   { name: 'BOQ No', note: 'Benzersiz satır kimliği' },
@@ -192,7 +198,7 @@ export default function UploadPage() {
                 </p>
                 <p className="mt-1 text-sm text-steel-500">
                   {isAnalyzing
-                    ? 'Satırlar okunuyor, eşleştirme ve AI değerlendirmesi yapılıyor.'
+                    ? 'Satırlar okunuyor ve malzeme eşleştirmesi yapılıyor.'
                     : 'veya dosya seçin — .xlsx biçimi'}
                 </p>
 
@@ -355,6 +361,74 @@ export default function UploadPage() {
           </Card>
 
           <Card>
+            <CardHeader
+              title="Örnek dosyalar"
+              description="Denemek için hazır, gerçek uygulamadan üretilmiş dosyalar."
+              action={<Badge tone="neutral">Gerçek dosyalar</Badge>}
+            />
+            <CardBody className="space-y-3">
+              {DEMO_METRAJ && (
+                <a
+                  href={DEMO_METRAJ.href}
+                  download={DEMO_METRAJ.name}
+                  className="flex items-start gap-2.5 rounded-md border border-copper-br bg-copper-bg px-3 py-2.5 transition-colors hover:brightness-[0.98]"
+                >
+                  <IconDownload className="mt-0.5 text-copper-700" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-steel-900">
+                      Örnek metrajı indir
+                    </span>
+                    <span className="block text-xs text-steel-600">
+                      Yüklenebilir · 18 satır · 4 onay bekleyen satır · AI
+                      önerisini test eder · .xlsx
+                    </span>
+                  </span>
+                </a>
+              )}
+
+              <Alert tone="info" title="Şablon ile örnek aynı şey değil" icon={<IconInfo />}>
+                <span className="block">
+                  <span className="font-medium">Şablon</span> (yukarıdaki
+                  “Şablonu indir”) boş bir başlangıç dosyasıdır; satırları
+                  kasıtlı olarak ya tam tanımlı ya geçersizdir, bu yüzden AI’ya
+                  iş bırakmaz.
+                </span>
+                <span className="mt-1 block">
+                  <span className="font-medium">Örnek metraj</span> ise gerçek
+                  bir dosyadır: 4 satır onay bekler, AI önerisi ve kapsam dışı
+                  davranışı burada görülür.
+                </span>
+              </Alert>
+
+              <div className="space-y-2">
+                <p className="text-label tracking-[0.08em] text-steel-500 uppercase">
+                  Örnek raporlar
+                </p>
+                {DEMO_REPORTS.map((file) => (
+                  <a
+                    key={file.name}
+                    href={file.href}
+                    {...(file.action === 'download'
+                      ? { download: file.name }
+                      : { target: '_blank', rel: 'noopener noreferrer' })}
+                    className="flex items-center justify-between gap-2 text-sm text-steel-700 underline underline-offset-2 hover:text-copper-700"
+                  >
+                    <span>{file.label}</span>
+                    <span className="font-mono text-xs text-steel-500">
+                      {file.format}
+                    </span>
+                  </a>
+                ))}
+              </div>
+
+              <p className="text-xs text-steel-500">
+                Bu dosyalar örnek çıktıdır; yükleme akışı yalnızca metraj
+                dosyasını kabul eder.
+              </p>
+            </CardBody>
+          </Card>
+
+          <Card>
             <CardHeader title="Dosya işleme" />
             <CardBody className="space-y-2.5">
               <p className="text-sm text-steel-600">
@@ -362,8 +436,9 @@ export default function UploadPage() {
                 silinir. Analiz sonucu sunucuda saklanmaz.
               </p>
               <p className="text-xs text-steel-500">
-                AI yalnızca onay bekleyen satırlar için öneri üretir; öneri
-                otomatik onaylanmaz.
+                {analyzeView?.aiEnabled
+                  ? 'AI yalnızca onay bekleyen satırlar için öneri üretir; öneri otomatik onaylanmaz.'
+                  : 'AI önerileri isteğe bağlıdır; kapalıyken hiçbir ağ çağrısı yapılmaz ve belirsiz satırlar sizin kararınıza düşer.'}
               </p>
               {analyzeView && (
                 <Button

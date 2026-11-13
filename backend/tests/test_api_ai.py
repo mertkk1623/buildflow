@@ -52,7 +52,7 @@ from tests.fixtures.api import (
     decide,
     upload,
 )
-from tests.fixtures.excel_files import build_demo_workbook
+from tests.fixtures.excel_files import build_demo_workbook, write_workbook
 
 #: Demo'daki pending satırlar, AI çağrı sırasına göre (Excel satır sırası).
 DEMO_AI_REPLIES = [
@@ -218,6 +218,236 @@ class TestOnlyPendingRows:
             "no_match": 0,
             "errors": 0,
         }
+
+
+# ---------------------------------------------------------------------------
+# 2b. AI açık ama çağrılacak satır yok
+# ---------------------------------------------------------------------------
+
+
+def _all_rule_workbook(path: Path) -> Path:
+    """Tüm satırları deterministik eşleşen dosya — AI'ya iş düşmez."""
+    return write_workbook(
+        path,
+        [
+            ["BOQ-001", "BOX 100×100×4 S235 siyah", 96, "m", 5],
+            ["BOQ-002", "IPE 200 S235 siyah", 100, "m", 3],
+            ["BOQ-003", "BOX 80×40×3 S235 siyah", 20, "m", 5],
+        ],
+    )
+
+
+class TestAiEnabledWithoutPendingRows:
+    """``ai.enabled=true`` "çağrı yapıldı" demek değildir.
+
+    Kullanıcı canlı testte tam nitelikli satırlar yüklediğinde
+    ``evaluated_rows=0`` görür. Bu bir hata değildir: ``enabled`` yalnızca
+    yapılandırmayı anlatır (``engine.py:100-102``).
+    """
+
+    def test_no_pending_row_yields_zero_counts_and_no_call(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        provider = scripted([AMBIGUOUS])
+
+        body = analyze_ok(client, _all_rule_workbook(tmp_path / "rule-only.xlsx"))
+
+        ai = body["ai"]
+        assert ai["enabled"] is True
+        assert ai["provider"] == "scripted"
+        assert ai["evaluated_rows"] == 0
+        assert ai["suggested"] == 0
+        assert ai["ambiguous"] == 0
+        assert ai["no_match"] == 0
+        assert ai["errors"] == 0
+        # Ağ trafiği ve maliyet yok: hiçbir satır sağlayıcıya gitmez.
+        assert provider.call_count == 0
+
+    def test_zero_counts_carry_a_reason(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        """``evaluated_rows=0`` artık sessiz değil: nedeni açıkça döner."""
+        scripted([AMBIGUOUS])
+
+        ai = analyze_ok(
+            client, _all_rule_workbook(tmp_path / "rule-only.xlsx")
+        )["ai"]
+
+        assert ai["skipped_reason"] == "no-pending-rows"
+        assert ai["skipped_message"]
+        # Mesaj kullanıcıya ne olduğunu söyler, "hata" demez.
+        assert "onay bekleyen" in ai["skipped_message"]
+
+    def test_reason_absent_when_ai_actually_works(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        """İş yapıldığında ``skipped_reason`` alanı yanıtta **bulunmaz**."""
+        scripted([suggestion("BOX-100-4-S235-B")])
+
+        ai = analyze_ok(
+            client,
+            write_workbook(
+                tmp_path / "pending.xlsx",
+                [["BOQ-001", "BOX 100×100×4", 96, "m", 5]],
+            ),
+        )["ai"]
+
+        assert ai["evaluated_rows"] == 1
+        assert "skipped_reason" not in ai
+        assert "skipped_message" not in ai
+
+    def test_every_row_keeps_deterministic_status(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        scripted([AMBIGUOUS])
+
+        rows = rows_by_no(
+            analyze_ok(client, _all_rule_workbook(tmp_path / "rule-only.xlsx"))
+        )
+
+        assert rows["BOQ-001"]["status"] == "rule"
+        assert rows["BOQ-001"]["match"]["matched_code"] == "BOX-100-4-S235-B"
+        assert rows["BOQ-002"]["status"] == "rule"
+        assert rows["BOQ-003"]["status"] == "excluded"
+        assert rows["BOQ-003"]["match"]["exclusion_reason"] == "catalog"
+        for row in rows.values():
+            assert row["ai"] is None
+
+    def test_catalog_exclusion_happens_before_ai(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        """Aday yoksa AI'ya sormak anlamsızdır (``engine.py:126-138``)."""
+        provider = scripted([AMBIGUOUS])
+
+        body = analyze_ok(
+            client,
+            write_workbook(
+                tmp_path / "no-candidate.xlsx",
+                [["BOQ-001", "BOX 80×40×3 S235 siyah", 20, "m", 5]],
+            ),
+        )
+
+        assert body["rows"][0]["status"] == "excluded"
+        assert body["rows"][0]["match"]["exclusion_reason"] == "catalog"
+        assert body["ai"]["evaluated_rows"] == 0
+        assert provider.call_count == 0
+
+    def test_missing_waste_is_excluded_before_ai(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        """Fire boşsa satır pending bile olamaz (``matching.py:155-174``)."""
+        provider = scripted([AMBIGUOUS])
+
+        body = analyze_ok(
+            client,
+            write_workbook(
+                tmp_path / "no-waste.xlsx",
+                [["BOQ-001", "BOX 100×100×4", 96, "m", None]],
+            ),
+        )
+
+        assert body["rows"][0]["status"] == "excluded"
+        assert body["rows"][0]["match"]["exclusion_reason"] == "waste"
+        assert body["ai"]["evaluated_rows"] == 0
+        assert provider.call_count == 0
+
+
+class TestPendingTriggersAi:
+    """Pending üretmenin tek yolu: eksik özellik + en az bir aday."""
+
+    def test_missing_coating_creates_pending_and_calls_ai(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        provider = scripted([suggestion("BOX-100-4-S235-B")])
+
+        body = analyze_ok(
+            client,
+            write_workbook(
+                tmp_path / "missing-coating.xlsx",
+                [["BOQ-001", "BOX 100×100×4", 96, "m", 5]],
+            ),
+        )
+
+        assert body["rows"][0]["status"] == "pending"
+        assert body["rows"][0]["ai"]["suggestion"]["suggested_code"] == (
+            "BOX-100-4-S235-B"
+        )
+        assert body["ai"]["enabled"] is True
+        assert body["ai"]["evaluated_rows"] == 1
+        assert body["ai"]["suggested"] == 1
+        assert provider.call_count == 1
+
+        # AI'ya yalnızca tanıma bilgisi gider; kaplama eksik olarak bildirilir.
+        payload = provider.last_payload()
+        assert payload["known_features"]["coating"] is None
+        assert {c["code"] for c in payload["candidates"]} == {
+            "BOX-100-4-S235-B",
+            "BOX-100-4-S235-G",
+        }
+
+    def test_missing_grade_and_coating_creates_pending(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        provider = scripted([suggestion("IPE-200-S235")])
+
+        body = analyze_ok(
+            client,
+            write_workbook(
+                tmp_path / "ipe-200.xlsx",
+                [["BOQ-001", "IPE 200", 1240, "kg", 3]],
+            ),
+        )
+
+        assert body["rows"][0]["status"] == "pending"
+        assert body["ai"]["evaluated_rows"] == 1
+        assert provider.call_count == 1
+
+    def test_hea_and_flat_can_also_become_pending(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        """V1 ailelerinin tamamı pending üretebilir; biri dışlanmış değildir."""
+        provider = scripted(
+            [
+                suggestion("HEA-200-S235"),
+                suggestion("FLAT-40x5-S235-B"),
+            ]
+        )
+
+        body = analyze_ok(
+            client,
+            write_workbook(
+                tmp_path / "hea-flat.xlsx",
+                [
+                    ["BOQ-001", "HEA 200", 50, "m", 4],
+                    ["BOQ-002", "lama 40×5", 210, "kg", 5],
+                ],
+            ),
+        )
+
+        rows = rows_by_no(body)
+        assert rows["BOQ-001"]["status"] == "pending"
+        assert rows["BOQ-002"]["status"] == "pending"
+        assert body["ai"]["evaluated_rows"] == 2
+        assert provider.call_count == 2
+
+    def test_suggestion_still_does_not_enter_matched_code(
+        self, client: TestClient, tmp_path: Path, scripted
+    ) -> None:
+        """AI önerisi ``matched_code``'a yazılmaz; kullanıcı onayı gerekir."""
+        scripted([suggestion("BOX-100-4-S235-B")])
+
+        body = analyze_ok(
+            client,
+            write_workbook(
+                tmp_path / "no-auto-approve.xlsx",
+                [["BOQ-001", "BOX 100×100×4", 96, "m", 5]],
+            ),
+        )
+
+        row = body["rows"][0]
+        assert row["status"] == "pending"
+        assert row["match"]["matched_code"] is None
+        assert row["ai"]["suggestion"]["suggested_code"] == "BOX-100-4-S235-B"
 
 
 # ---------------------------------------------------------------------------

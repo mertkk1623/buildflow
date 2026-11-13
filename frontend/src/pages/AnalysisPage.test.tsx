@@ -92,6 +92,43 @@ describe('AnalysisPage', () => {  it('analiz yoksa boş durum gösterir', () => 
     expect(headerSummary()).not.toContain('13')
   })
 
+  it('AI açık ama pending yoksa neden çağrılmadığını açıklar', async () => {
+    await analyzeAndOpen(
+      makeAnalysis({
+        aiSummary: {
+          enabled: true,
+          provider: 'openai-compatible',
+          evaluated_rows: 0,
+          suggested: 0,
+          ambiguous: 0,
+          no_match: 0,
+          errors: 0,
+          skipped_reason: 'no-pending-rows',
+          skipped_message:
+            'AI açık ancak bu dosyada onay bekleyen satır yok. Hiçbir AI çağrısı yapılmadı.',
+        },
+      }),
+    )
+
+    expect(screen.getByText('Açık · openai-compatible')).toBeInTheDocument()
+    expect(
+      screen.getByText('AI açık, ancak çağrılacak satır yok'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/onay bekleyen satır yok/),
+    ).toBeInTheDocument()
+    // Bu bir hata gibi sunulmamalı.
+    expect(screen.getByText(/Bu bir hata değil/)).toBeInTheDocument()
+  })
+
+  it('AI gerçekten çalıştıysa atlama bilgisi göstermez', async () => {
+    await analyzeAndOpen(analysisWithAi())
+
+    expect(
+      screen.queryByText('AI açık, ancak çağrılacak satır yok'),
+    ).not.toBeInTheDocument()
+  })
+
   it('uyarıları kaybetmeden listeler', async () => {
     await analyzeAndOpen(
       makeAnalysis({

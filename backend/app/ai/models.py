@@ -19,6 +19,20 @@ from enum import Enum
 from app.domain.models import MaterialAttributes
 
 
+class AiSkipReason(str, Enum):
+    """AI açıkken hiçbir satırın değerlendirilmemesinin nedeni.
+
+    Bu kod **hata değildir**: yapılandırma doğru, çağrılacak satır yok.
+    İstemci bunu "AI bozuk" ile karıştırmamalıdır.
+    """
+
+    #: Dosyada ``pending`` satır yok; tüm satırlar deterministik olarak
+    #: çözülmüş (``rule``) veya kapsam dışı/fire eksik diye elenmiş.
+    NO_PENDING_ROWS = "no-pending-rows"
+    #: Pending satır vardı ama BOQ No/açıklama taşımadığı için gönderilemedi.
+    MISSING_ROW_IDENTITY = "missing-row-identity"
+
+
 class AiStatus(str, Enum):
     """AI'nın bildirebileceği **üç** durum. Başka değer kabul edilmez."""
 
@@ -184,6 +198,9 @@ class AiRunResult:
     provider: str
     evaluations: dict[str, AiEvaluation] = field(default_factory=dict)
     warnings: tuple[str, ...] = ()
+    #: AI açıkken hiçbir satır değerlendirilmediyse **neden**. Kapalıyken
+    #: veya iş yapıldıysa ``None``. ``AiSkipReason`` değerlerinden biridir.
+    skipped_reason: str | None = None
 
     def suggestion(self, boq_no: str | None) -> AiSuggestion | None:
         if boq_no is None:

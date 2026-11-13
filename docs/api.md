@@ -41,6 +41,21 @@ eşleştirme durumu veya hesaplanmış değer kabul edilmez.
 Yanıt satırları dört durumdan birinde gelir: `rule`, `pending`, `excluded`,
 `invalid`. Deterministik eşleşmeler ile AI önerileri **ayrı alanlarda** durur.
 
+### `ai` özeti
+
+`ai.enabled` yalnızca **yapılandırmayı** anlatır; "kaç satır işlendi" anlamına
+gelmez. AI açık ama dosyada onay bekleyen satır yoksa sayaçlar sıfır döner ve
+neden `ai.skipped_reason` alanında belirtilir:
+
+| `skipped_reason` | Anlamı |
+|---|---|
+| `no-pending-rows` | Tüm satırlar deterministik çözüldü veya kapsam dışı kaldı; AI çağrısı yapılmadı |
+| `missing-row-identity` | Pending satır var ama BOQ No/açıklama eksik; AI'ya gönderilemedi |
+
+`skipped_reason` ve `skipped_message` alanları **yalnızca** böyle bir durumda
+yanıtta bulunur; AI gerçekten çalıştıysa veya kapalıysa hiç gönderilmez. Bu,
+alanları eklerken eski istemcileri bozmamak için bilinçli bir tercihtir.
+
 ```powershell
 curl.exe -F "file=@..\templates\ornek_metraj.xlsx" http://127.0.0.1:8000/api/analyze
 ```
@@ -59,6 +74,23 @@ eşleşme veya hesaplanmış alan sunucu tarafından reddedilir.
 
 Ölçekli değerler (Decimal) JSON'da **string** taşınır — kayan nokta yuvarlaması
 oluşmaz.
+
+### Hesaba alınmayan satırlar
+
+`skipped` dizisindeki her satır `status` alanıyla **jenerik** durumunu taşır
+(`pending`, `rejected`, `excluded`, `invalid`, `unknown-code`). `excluded`
+durumunda gerçek neden ayrıca belirtilir:
+
+| `exclusion_reason` | Etiket | Ne yapmalı |
+|---|---|---|
+| `waste` | Fire tanımsız | `waste_percent` doldurulmalı (fire sıfır varsayılmaz) |
+| `unit` | Birim desteklenmiyor | Birim `m`, `kg` veya `t` olmalı |
+| `catalog` | Katalogda karşılığı yok | Açıklamadaki ölçü/kalite/kaplama katalogda yok |
+| `missing-mass` | Birim kütle yok | Katalogda `kg/m` tanımlı değil |
+
+`exclusion_reason` ve `exclusion_reason_label` yalnızca `excluded` satırlarda
+bulunur; `pending` satırda dışlama nedeni **yoktur** (henüz karar verilmedi).
+`message` alanı her durumda satıra özgü, eyleme dönük açıklamayı taşır.
 
 ## POST /api/report/excel · POST /api/report/pdf
 

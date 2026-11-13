@@ -109,6 +109,13 @@ export type AiSummaryOut = {
   ambiguous: number
   no_match: number
   errors: number
+  /**
+   * AI açıkken hiçbir satır değerlendirilmediyse nedeni. Alan yanıtta
+   * **yoksa** ya AI iş yaptı ya da kapalıdır. Geriye dönük uyumlu.
+   */
+  skipped_reason?: 'no-pending-rows' | 'missing-row-identity'
+  /** `skipped_reason` için kullanıcıya gösterilecek açıklama. */
+  skipped_message?: string
 }
 
 export type AnalyzeRow = {
@@ -271,6 +278,10 @@ export type SkippedRowOut = {
     | null
   matched_code: string | null
   message: string
+  /** `excluded` satırın gerçek nedeni; diğer durumlarda yok/null. */
+  exclusion_reason?: ExclusionReason | null
+  /** Dışlama nedeninin kısa etiketi (ör. "Fire tanımsız"). */
+  exclusion_reason_label?: string | null
 }
 
 export type CalculationSummaryOut = {

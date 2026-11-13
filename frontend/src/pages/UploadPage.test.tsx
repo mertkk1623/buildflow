@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
-import { installFetchMock, jsonResponse } from '../test/server'
+import { callsTo, installFetchMock, jsonResponse } from '../test/server'
 import { chooseFile, metrajFile, renderApp } from '../test/harness'
 import {
   CORRUPT_FILE_ERROR,
@@ -208,5 +208,60 @@ describe('UploadPage', () => {
     expect(screen.getByText('Fire (%)')).toBeInTheDocument()
     expect(screen.getByText(/boşsa satır hesaba girmez/)).toBeInTheDocument()
     expect(screen.queryByText(/İsteğe bağlı/)).not.toBeInTheDocument()
+  })
+
+  it('örnek metrajı ve örnek raporları indirilebilir sunar', () => {
+    installFetchMock()
+    renderApp('/upload')
+
+    const metraj = document.querySelector<HTMLAnchorElement>(
+      'a[href="/examples/ornek-metraj.xlsx"]',
+    )
+    expect(metraj).not.toBeNull()
+    // İndirme özniteliği: dosya tarayıcıda açılmaz, kaydedilir.
+    expect(metraj).toHaveAttribute('download')
+
+    expect(
+      document.querySelector('a[href="/examples/ornek-satin-alma-raporu.xlsx"]'),
+    ).not.toBeNull()
+    expect(
+      document.querySelector('a[href="/examples/ornek-satin-alma-raporu.pdf"]'),
+    ).not.toBeNull()
+  })
+
+  it('örnek dosya bağlantıları ekstra API çağrısı yapmaz', () => {
+    const { calls } = installFetchMock()
+    renderApp('/upload')
+
+    // Örnekler statik dosyadır; liste açmak ağ isteği üretmez.
+    expect(callsTo(calls, 'GET', '/api/template')).toHaveLength(0)
+  })
+
+  it('şablon ile örnek metrajı açıkça ayırır', () => {
+    installFetchMock()
+    renderApp('/upload')
+
+    // Kullanıcı hangi dosyanın ne işe yaradığını karıştırmamalı:
+    // şablon = boş başlangıç, örnek = AI testini tetikleyen gerçek dosya.
+    expect(
+      screen.getByText(/Şablon ile örnek aynı şey değil/),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Yüklenebilir · 18 satır · 4 onay bekleyen satır/)).toBeInTheDocument()
+    // Şablon sunucudan iner, örnek statiktir: iki ayrı mekanizma.
+    expect(
+      screen.getByRole('button', { name: 'Şablonu indir' }),
+    ).toBeInTheDocument()
+  })
+
+  it('örnek metrajı AI testini tetiklediğini söyler', () => {
+    installFetchMock()
+    renderApp('/upload')
+
+    const link = document.querySelector<HTMLAnchorElement>(
+      'a[href="/examples/ornek-metraj.xlsx"]',
+    )
+    expect(link).not.toBeNull()
+    expect(link?.textContent).toMatch(/4 onay bekleyen satır/)
+    expect(link?.textContent).toMatch(/AI/)
   })
 })

@@ -22,6 +22,21 @@ eşleştirir ve sonucu bir **öneri** olarak döndürür.
   sonuçla tamamlanır; ilgili satırlar `pending` kalır ve kullanıcıya tek bir
   uyarı gösterilir.
 
+### AI açık ama iş yok
+
+`ai.enabled=true` **"AI çağrıldı" demek değildir**; yalnızca yapılandırmayı
+anlatır. Dosyada onay bekleyen satır yoksa hiçbir istek yapılmaz (ağ trafiği ve
+maliyet yok) ve yanıt bunu `ai.skipped_reason` ile açıklar:
+
+- `no-pending-rows` — tüm satırlar deterministik çözüldü ya da fire/birim/katalog
+  nedeniyle kapsam dışı kaldı.
+- `missing-row-identity` — pending satır var ama BOQ No veya açıklama eksik
+  olduğu için AI'ya gönderilemedi.
+
+Bu bir hata değildir. Alanlar yalnızca bu durumda yanıtta bulunur; AI gerçekten
+çalıştığında veya kapalıyken gönderilmez. Arayüz bunu bilgi kutusu olarak
+gösterir, hata olarak sunmaz.
+
 ## Yanıt doğrulaması
 
 Yanıt katı bir şemaya göre doğrulanır:

@@ -397,6 +397,8 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
           aiAmbiguous: state.analysis.ai.ambiguous,
           aiNoMatch: state.analysis.ai.no_match,
           aiErrors: state.analysis.ai.errors,
+          aiSkippedReason: state.analysis.ai.skipped_reason ?? null,
+          aiSkippedMessage: state.analysis.ai.skipped_message ?? null,
           warnings: state.analysis.warnings,
           ignoredColumns: state.analysis.ignored_columns,
         }

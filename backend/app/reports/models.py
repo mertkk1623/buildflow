@@ -149,6 +149,11 @@ class ReportSkippedRow:
     reason: str
     reason_label: str
     message: str
+    #: ``excluded`` satırın gerçek nedeni (``waste``/``unit``/``catalog``/
+    #: ``missing-mass``); diğer durumlarda ``None``.
+    exclusion_reason: str | None = None
+    #: Dışlama nedeninin kısa etiketi (ör. "Fire tanımsız").
+    exclusion_reason_label: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,6 +255,10 @@ def build_report(
             reason=row.reason.value,
             reason_label=SKIP_REASON_LABELS.get(row.reason, row.reason.value),
             message=row.message,
+            exclusion_reason=(
+                row.exclusion_reason.value if row.exclusion_reason else None
+            ),
+            exclusion_reason_label=row.exclusion_label,
         )
         for row in result.skipped
     )

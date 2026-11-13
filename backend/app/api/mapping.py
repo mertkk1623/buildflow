@@ -115,6 +115,20 @@ def ai_evaluation_to_out(evaluation) -> AiOut:
     )
 
 
+#: ``skipped_reason`` kodlarının kullanıcıya dönük açıklamaları.
+_AI_SKIP_MESSAGES: dict[str, str] = {
+    "no-pending-rows": (
+        "AI açık ancak bu dosyada onay bekleyen satır yok. Tüm satırlar "
+        "deterministik kural ile eşleşti veya fire/birim/katalog nedeniyle "
+        "kapsam dışı kaldı; bu yüzden hiçbir AI çağrısı yapılmadı."
+    ),
+    "missing-row-identity": (
+        "Onay bekleyen satırlar var ancak BOQ No veya açıklama eksik olduğu "
+        "için AI'ya gönderilemedi. Bu satırlar kullanıcı onayı bekliyor."
+    ),
+}
+
+
 def ai_summary_to_out(result: AiRunResult) -> AiSummaryOut:
     """AI çalışmasının özeti."""
     return AiSummaryOut(
@@ -125,6 +139,12 @@ def ai_summary_to_out(result: AiRunResult) -> AiSummaryOut:
         ambiguous=result.ambiguous,
         no_match=result.no_match,
         errors=result.errors,
+        skipped_reason=result.skipped_reason,
+        skipped_message=(
+            _AI_SKIP_MESSAGES.get(result.skipped_reason)
+            if result.skipped_reason
+            else None
+        ),
     )
 
 
@@ -308,6 +328,10 @@ def skipped_row_to_out(
         match_status=row.match_status.value if row.match_status else None,
         matched_code=row.matched_code,
         message=row.message,
+        exclusion_reason=(
+            row.exclusion_reason.value if row.exclusion_reason else None
+        ),
+        exclusion_reason_label=row.exclusion_label,
     )
 
 

@@ -46,9 +46,11 @@ from app.domain.catalog import Catalog
 from app.domain.models import (
     CatalogItem,
     Coating,
+    ExclusionReason,
     Grade,
     MatchOutcome,
     MatchStatus,
+    MaterialAttributes,
     MaterialFamily,
     Unit,
 )
@@ -220,6 +222,13 @@ class CalculationInputRow:
     waste_rate: WasteRate | None = None
     status: MatchStatus = MatchStatus.RULE
     matched_code: str | None = None
+    #: ``excluded`` satırın **özel** nedeni (fire/birim/katalog). Raporun
+    #: "Hesaba Alınmayanlar" bölümü bunu gösterir; jenerik metin yeterli
+    #: değildir çünkü üç farklı sorun aynı etikete düşerdi.
+    exclusion_reason: ExclusionReason | None = None
+    #: Satırın tanınan özellikleri; dışlama mesajını somutlaştırır
+    #: (ör. "HEA 200 · S235 · galvaniz katalogda yok").
+    attributes: MaterialAttributes | None = None
 
     def __post_init__(self) -> None:
         # Birim metni geldiyse normalize et; desteklenmeyen birim ``None`` olur
@@ -269,6 +278,8 @@ class CalculationInputRow:
             waste_rate=waste_rate,
             status=outcome.status,
             matched_code=outcome.matched_code,
+            exclusion_reason=outcome.exclusion_reason,
+            attributes=outcome.attributes,
         )
 
 
@@ -356,6 +367,16 @@ class SkippedRow:
     message: str
     matched_code: str | None = None
     match_status: MatchStatus | None = None
+    #: ``excluded`` satırın özel nedeni. ``reason`` yalnızca "kapsam dışı"
+    #: der; kullanıcı **hangi** kuralın devreye girdiğini burada görür.
+    exclusion_reason: ExclusionReason | None = None
+
+    @property
+    def exclusion_label(self) -> str | None:
+        """Dışlama nedeninin kısa, kullanıcıya dönük etiketi."""
+        if self.exclusion_reason is None:
+            return None
+        return EXCLUSION_REASON_LABELS.get(self.exclusion_reason)
 
 
 @dataclass(frozen=True, slots=True)
@@ -505,6 +526,75 @@ _SKIP_MESSAGES: dict[SkipReason, str] = {
     SkipReason.INVALID: "Satır geçersiz; hesaplamaya alınmaz.",
 }
 
+#: ``excluded`` satırın gerçek nedenine göre okunabilir etiket.
+#:
+#: Bu tablo olmadan raporda üç farklı sorun (fire yok / birim / katalog)
+#: aynı "Kapsam dışı" etiketiyle görünür ve kullanıcı neyi düzelteceğini
+#: bilemez.
+EXCLUSION_REASON_LABELS: dict[ExclusionReason, str] = {
+    ExclusionReason.WASTE: "Fire tanımsız",
+    ExclusionReason.UNIT: "Birim desteklenmiyor",
+    ExclusionReason.CATALOG: "Katalogda karşılığı yok",
+    ExclusionReason.MISSING_MASS: "Birim kütle yok",
+}
+
+
+def _exclusion_message(
+    row: CalculationInputRow,
+    reason: ExclusionReason | None,
+) -> str:
+    """Dışlama nedenini satıra özgü, eyleme dönük bir mesaja çevirir.
+
+    Jenerik metin korunur ama artık **neden** ve **ne yapmalı** bilgisini
+    taşır: kullanıcı "kapsam dışı" yerine "fire boş" veya "bu kaplama
+    katalogda yok" görür. Etiket ayrı alanda taşınır; burada tekrar edilmez.
+    """
+    base = _SKIP_MESSAGES[SkipReason.EXCLUDED]
+    if reason is None:
+        return base
+
+    parts: list[str] = [base]
+
+    if reason is ExclusionReason.WASTE:
+        parts.append(
+            "Neden: fire oranı boş. Fire sıfır varsayılmaz; satırı hesaba "
+            "katmak için Fire (%) sütununu doldurun."
+        )
+    elif reason is ExclusionReason.UNIT:
+        unit_text = row.unit.value if isinstance(row.unit, Unit) else None
+        parts.append(
+            f"Neden: birim {unit_text!r} desteklenmiyor."
+            if unit_text
+            else "Neden: birim okunamadı veya boş."
+        )
+        parts.append("Desteklenen birimler: m, kg, t.")
+    elif reason is ExclusionReason.CATALOG:
+        known = ""
+        attributes = row.attributes
+        if attributes is not None:
+            known = ", ".join(
+                part
+                for part in (
+                    attributes.family.value if attributes.family else None,
+                    attributes.size,
+                    attributes.grade.value if attributes.grade else None,
+                    attributes.coating.value if attributes.coating else None,
+                )
+                if part
+            )
+        parts.append(
+            f"Neden: katalogda bu kombinasyon yok (tanınan: {known})."
+            if known
+            else "Neden: açıklama katalogdaki bir aileyle eşleşmiyor."
+        )
+        parts.append(
+            "Benzer ölçü veya kaplamaya otomatik düşürme yapılmaz."
+        )
+    elif reason is ExclusionReason.MISSING_MASS:
+        parts.append("Neden: katalogda birim kütle (kg/m) tanımlı değil.")
+
+    return " ".join(parts)
+
 
 def calculate_purchase_list(
     rows: Sequence[CalculationInputRow],
@@ -610,12 +700,18 @@ def _classify(row: CalculationInputRow) -> SkippedRow | None:
     """Satır hesaba girmeyecekse nedenini döndürür."""
     if row.status not in _ELIGIBLE_STATUSES:
         reason = _SKIP_REASON_BY_STATUS.get(row.status, SkipReason.INVALID)
+        message = (
+            _exclusion_message(row, row.exclusion_reason)
+            if reason is SkipReason.EXCLUDED
+            else _SKIP_MESSAGES[reason]
+        )
         return SkippedRow(
             row_no=row.row_no,
             reason=reason,
-            message=_SKIP_MESSAGES[reason],
+            message=message,
             matched_code=row.matched_code,
             match_status=row.status,
+            exclusion_reason=row.exclusion_reason,
         )
 
     if not row.matched_code:

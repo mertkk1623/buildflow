@@ -36,7 +36,7 @@ from app.api.schemas import (
     CalculateResponse,
 )
 from app.ai.engine import evaluate_rows
-from app.ai.models import AiRunResult
+from app.ai.models import AiRunResult, AiSkipReason
 from app.ai.providers import AiProvider
 from app.domain.calculation import (
     CalculationInputRow,
@@ -134,13 +134,28 @@ def _run_ai(
         return AiRunResult(enabled=False, provider="none")
 
     pending_rows: list[tuple[str, str, MatchOutcome]] = []
+    pending_seen = False
     for row in result.rows:
         outcome = outcomes.get(row.source_row)
         if outcome is None or outcome.status is not MatchStatus.PENDING:
             continue
+        pending_seen = True
         if not row.boq_no or not row.description:
             continue
         pending_rows.append((row.boq_no, row.description, outcome))
+
+    if not pending_rows:
+        # Pending satır var ama kimliği yok → AI'ya gönderilemez.
+        # Hiç pending yok → zaten iş yok. İkisi ayrı nedenle raporlanır.
+        return AiRunResult(
+            enabled=True,
+            provider=getattr(provider, "name", "unknown"),
+            skipped_reason=(
+                AiSkipReason.MISSING_ROW_IDENTITY.value
+                if pending_seen
+                else AiSkipReason.NO_PENDING_ROWS.value
+            ),
+        )
 
     try:
         return evaluate_rows(pending_rows, catalog, provider)
