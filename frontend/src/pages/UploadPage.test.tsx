@@ -75,13 +75,89 @@ describe('UploadPage', () => {
   })
 
   it('10 MB üzeri dosyayı yerelde reddeder', async () => {
+    const { calls } = installFetchMock()
+    renderApp('/upload')
+
+    const input = fileInput()
+    chooseFile(input, metrajFile('buyuk.xlsx', 11 * 1024 * 1024))
+
+    expect(await screen.findByText('Dosya seçilemedi')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Dosya boyutu 10 MB sınırını aşıyor. Lütfen daha küçük bir Excel dosyası seçin.',
+      ),
+    ).toBeInTheDocument()
+    // Sunucuya hiç gitmez: sınır istemcide kesilir.
+    expect(calls.filter((call) => call.path === '/api/analyze')).toHaveLength(0)
+  })
+
+  it('boyut sınırı hatasını erişilebilir bir uyarı olarak gösterir', async () => {
     installFetchMock()
     renderApp('/upload')
 
     chooseFile(fileInput(), metrajFile('buyuk.xlsx', 11 * 1024 * 1024))
 
+    // Ekran okuyucu duyurusu: role="alert" + canlı bölge.
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Dosya boyutu 10 MB sınırını aşıyor. Lütfen daha küçük bir Excel dosyası seçin.',
+    )
+  })
+
+  it('boyut sınırı aşıldığında dosya input’unu sıfırlar', async () => {
+    installFetchMock()
+    renderApp('/upload')
+
+    const input = fileInput()
+    chooseFile(input, metrajFile('buyuk.xlsx', 11 * 1024 * 1024))
+    await screen.findByText('Dosya seçilemedi')
+
+    // Reddedilen dosya input'ta kalmaz; aynı dosya yeniden seçilebilir.
+    expect(input.value).toBe('')
+  })
+
+  it('boyut sınırı aşıldığında hesaplamaya ilerletmez', async () => {
+    installFetchMock()
+    renderApp('/upload')
+
+    chooseFile(fileInput(), metrajFile('buyuk.xlsx', 11 * 1024 * 1024))
+    await screen.findByText('Dosya seçilemedi')
+
+    expect(screen.getByRole('button', { name: 'Analize geç' })).toBeDisabled()
+    expect(screen.queryByText('Analiz tamamlandı')).not.toBeInTheDocument()
+  })
+
+  it('geçerli dosya seçilince boyut hatası temizlenir', async () => {
+    installFetchMock({ 'POST /api/analyze': () => jsonResponse(makeAnalysis()) })
+    renderApp('/upload')
+
+    const input = fileInput()
+    chooseFile(input, metrajFile('buyuk.xlsx', 11 * 1024 * 1024))
     expect(await screen.findByText('Dosya seçilemedi')).toBeInTheDocument()
-    expect(screen.getByText(/Dosya çok büyük/)).toBeInTheDocument()
+
+    chooseFile(input, metrajFile('metraj.xlsx'))
+
+    // Hata kaybolur, analiz başlar.
+    await waitFor(() =>
+      expect(screen.queryByText('Dosya seçilemedi')).not.toBeInTheDocument(),
+    )
+    expect(await screen.findByText('Analiz tamamlandı')).toBeInTheDocument()
+  })
+
+  it('geçerli analizden sonra büyük dosya seçilirse ilerlemeyi kilitler', async () => {
+    installFetchMock({ 'POST /api/analyze': () => jsonResponse(makeAnalysis()) })
+    renderApp('/upload')
+
+    const input = fileInput()
+    chooseFile(input, metrajFile('metraj.xlsx'))
+    await screen.findByText('Analiz tamamlandı')
+    expect(screen.getByRole('button', { name: 'Analize geç' })).toBeEnabled()
+
+    chooseFile(input, metrajFile('buyuk.xlsx', 11 * 1024 * 1024))
+    await screen.findByText('Dosya seçilemedi')
+
+    // Eski analiz ekranda dursa da hatalı seçim sonrası ilerleme kapanır.
+    expect(screen.getByRole('button', { name: 'Analize geç' })).toBeDisabled()
   })
 
   it('eksik kolon hatasını kullanıcıya anlaşılır gösterir', async () => {

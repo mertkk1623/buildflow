@@ -31,6 +31,16 @@ import { useWorkflow } from '../state/WorkflowContext'
 /** Sunucu sınırı: `BUILDFLOW_MAX_UPLOAD_BYTES`, varsayılan 10 MB. */
 const MAX_FILE_BYTES = 10 * 1024 * 1024
 
+/**
+ * Boyut sınırı aşıldığında gösterilen kesin mesaj.
+ *
+ * Sabit tutulur: kullanıcıya ne olduğu (sınır aşıldı) ve ne yapması gerektiği
+ * (daha küçük dosya) tek cümlede söylenir. Sayısal ayrıntı yerine sabit sınır
+ * adı kullanılır, böylece mesaj testlerde ve ekran okuyucuda değişmez.
+ */
+const SIZE_LIMIT_MESSAGE =
+  'Dosya boyutu 10 MB sınırını aşıyor. Lütfen daha küçük bir Excel dosyası seçin.'
+
 /** Denemek için hazır dosyalar — ana sayfayla aynı kaynaktan gelir. */
 const DEMO_METRAJ = DEMO_METRAJ_FILE
 const DEMO_REPORTS = EXAMPLE_FILES.filter((file) => file.kind === 'rapor')
@@ -52,7 +62,7 @@ function localFileProblem(file: File): string | null {
     return 'Seçilen dosya boş (0 bayt).'
   }
   if (file.size > MAX_FILE_BYTES) {
-    return `Dosya çok büyük (${formatFileSize(file.size)}). En fazla ${formatFileSize(MAX_FILE_BYTES)} yüklenebilir.`
+    return SIZE_LIMIT_MESSAGE
   }
   return null
 }
@@ -82,7 +92,12 @@ export default function UploadPage() {
     if (!file) return
     const problem = localFileProblem(file)
     setLocalError(problem)
-    if (problem) return
+    if (problem) {
+      // Reddedilen dosya input'ta kalmasın: aynı dosya yeniden seçilebilsin
+      // ve tarayıcı "seçili dosya" olarak göstermeye devam etmesin.
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
     void analyze(file)
   }
 
@@ -122,9 +137,16 @@ export default function UploadPage() {
       )}
 
       {localError && (
-        <Alert tone="danger" title="Dosya seçilemedi" icon={<IconAlert />} className="mb-5">
-          {localError}
-        </Alert>
+        <div role="alert" aria-live="assertive">
+          <Alert
+            tone="danger"
+            title="Dosya seçilemedi"
+            icon={<IconAlert />}
+            className="mb-5"
+          >
+            {localError}
+          </Alert>
+        </div>
       )}
 
       {error && error.stage === 'analyze' && (
@@ -473,9 +495,9 @@ export default function UploadPage() {
         <Button
           variant="primary"
           trailingIcon={<IconArrowRight />}
-          disabled={!analyzeView}
+          disabled={!analyzeView || Boolean(localError)}
           onClick={() => {
-            if (analyzeView) navigate('/analysis')
+            if (analyzeView && !localError) navigate('/analysis')
           }}
         >
           Analize geç
