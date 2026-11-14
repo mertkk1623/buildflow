@@ -60,6 +60,13 @@ _BODY_WIDTH: Final = _PAGE_WIDTH - 2 * _MARGIN
 #: değere göre hesaplanır.
 _ROW_HEIGHT: Final = 6.2
 
+#: "Hesaba Alınmayan Satırlar" tablosu için satır ölçüleri (mm).
+#: Satır yüksekliği sabit değildir: içeriğe göre ölçülür.
+_SKIPPED_LINE_HEIGHT: Final = 4.2
+_SKIPPED_MIN_ROW_HEIGHT: Final = 6.0
+#: Hücre içi dikey nefes payı — metin çizgilere değmesin.
+_SKIPPED_CELL_PAD: Final = 1.6
+
 
 class ReportPdf(FPDF):
     """Sayfa altbilgisi (sayfa numarası) ve başlık tekrarı ekleyen PDF.
@@ -405,52 +412,116 @@ def _write_skipped(pdf: ReportPdf, report: Report) -> None:
     )
     pdf.ln(1)
 
-    columns = (
+    columns = _skipped_columns()
+    header_height = 8.0
+
+    def header() -> None:
+        pdf.set_font(_BOLD, size=7.2)
+        pdf.set_text_color(*_WHITE)
+        pdf.set_fill_color(*_NAVY)
+        for title, width, align in columns:
+            pdf.cell(width, header_height, title, align=align, fill=True)
+        pdf.ln(header_height)
+        pdf.set_draw_color(*_RULE)
+        pdf.set_line_width(0.15)
+
+    header()
+
+    # Alt sınır: tablo gövdesinin son satırı bu çizgiyi geçmemeli.
+    bottom_limit = pdf.h - 20
+
+    for item in report.skipped:
+        values = (
+            item.boq_no,
+            item.description or "—",
+            item.reason_label,
+            item.exclusion_reason_label or "—",
+            item.message,
+        )
+        height = _skipped_row_height(pdf, columns, values)
+
+        # Satır sığmıyorsa yeni sayfaya geç ve başlığı **yineler**. Böylece
+        # devam eden sayfada sütunlar başlıksız kalmaz. Döngü satır başına bir
+        # kez döndüğü için sonsuz döngü riski yoktur; tek satır tam sayfaya
+        # sığmasa bile yeni sayfadan başlamak en fazla yeri verir.
+        if pdf.get_y() + height > bottom_limit:
+            pdf.add_page()
+            header()
+
+        _skipped_row(pdf, columns, values, height)
+
+
+def _skipped_columns() -> tuple[tuple[str, float, str], ...]:
+    """Hesaba alınmayan satırlar tablosunun sütunları.
+
+    Genişlikler toplamı gövde genişliğine eşittir:
+    ``20 + 58 + 28 + 34 + (BODY - 140) == BODY``.
+    """
+    return (
         ("BOQ No", 20.0, "L"),
         ("Açıklama", 58.0, "L"),
         ("Durum", 28.0, "L"),
         ("Neden kodu", 34.0, "L"),
         ("Neden", _BODY_WIDTH - 140.0, "L"),
     )
-    pdf.set_font(_BOLD, size=7.2)
-    pdf.set_text_color(*_WHITE)
-    pdf.set_fill_color(*_NAVY)
-    for title, width, align in columns:
-        pdf.cell(width, 8.0, title, align=align, fill=True)
-    pdf.ln(8.0)
 
-    for item in report.skipped:
-        if pdf.get_y() + 6.0 > pdf.h - 20:
-            pdf.add_page()
-        pdf.set_font(_REGULAR, size=7.2)
-        pdf.set_text_color(0, 0, 0)
-        cells = (
-            item.boq_no,
-            item.description or "—",
-            item.reason_label,
-            item.exclusion_reason_label or "—",
+
+def _skipped_row_height(
+    pdf: ReportPdf,
+    columns: tuple[tuple[str, float, str], ...],
+    values: tuple[str, ...],
+) -> float:
+    """Satır yüksekliğini **içeriğe göre** hesaplar.
+
+    Her hücre kendi genişliğinde, gerçek fontla ve kuru çalıştırmayla
+    (``dry_run``) ölçülür; en uzun hücre satırın yüksekliğini belirler.
+    Böylece uzun bir neden metni komşu satırın üzerine binmez.
+    """
+    pdf.set_font(_REGULAR, size=7.2)
+    tallest = _SKIPPED_MIN_ROW_HEIGHT
+    for (_, width, _), value in zip(columns, values, strict=True):
+        text = str(value) if value else ""
+        if not text:
+            continue
+        measured = pdf.multi_cell(
+            width,
+            _SKIPPED_LINE_HEIGHT,
+            text,
+            dry_run=True,
+            output="HEIGHT",
+            max_line_height=_SKIPPED_LINE_HEIGHT,
         )
-        x = pdf.l_margin
-        y = pdf.get_y()
-        height = 0.0
-        for (_, width, align), value in zip(columns[:-1], cells, strict=True):
-            pdf.set_xy(x, y)
-            pdf.cell(width, 6.0, value, align=align)
-            x += width
-        # Son sütun (Neden) artık uzun: satır yüksekliğini metne göre büyüt.
-        last_width = columns[-1][1]
+        tallest = max(tallest, float(measured) + _SKIPPED_CELL_PAD)
+    return tallest
+
+
+def _skipped_row(
+    pdf: ReportPdf,
+    columns: tuple[tuple[str, float, str], ...],
+    values: tuple[str, ...],
+    height: float,
+) -> None:
+    """Tek satırı çizer: her hücre kendi içinde kaydırılır, satır yüksekliği ortak."""
+    x = pdf.l_margin
+    y = pdf.get_y()
+    pdf.set_font(_REGULAR, size=7.2)
+    pdf.set_text_color(0, 0, 0)
+    for (_, width, align), value in zip(columns, values, strict=True):
         pdf.set_xy(x, y)
         pdf.multi_cell(
-            last_width,
-            4.2,
-            item.message,
-            align="L",
-            new_x="LMARGIN",
+            width,
+            _SKIPPED_LINE_HEIGHT,
+            str(value or ""),
+            align=align,
+            border=0,
+            new_x="RIGHT",
+            # ``new_y="TOP"`` yalnızca hücre içinde kullanılır: imleci hücre
+            # tepesinde tutar, satır sonunda konum aşağıda açıkça ayarlanır.
             new_y="TOP",
-            max_line_height=4.2,
+            max_line_height=_SKIPPED_LINE_HEIGHT,
         )
-        height = max(6.0, pdf.get_y() - y)
-        pdf.set_y(y + height)
+        x += width
+    pdf.set_y(y + height)
 
 
 def _write_disclaimers(pdf: ReportPdf, report: Report) -> None:

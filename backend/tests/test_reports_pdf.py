@@ -27,12 +27,14 @@ from app.reports.models import (
     build_report,
 )
 from app.reports.pdf import build_pdf
+from app.reports.service import build_run_report, render_report
 from tests.fixtures.reports import (
     EXPECTED_GROUPS,
     EXPECTED_ORDER_LENGTH_M,
     EXPECTED_WEIGHT_KG,
     FIXED_NOW,
     demo_report,
+    demo_request,
     empty_result,
     partial_missing_commercial_length,
     partial_missing_mass,
@@ -315,6 +317,345 @@ class TestPagination:
     def test_no_page_is_empty(self, demo_payload: bytes) -> None:
         for page in PdfReader(BytesIO(demo_payload)).pages:
             assert page.extract_text().strip()
+
+
+# ---------------------------------------------------------------------------
+# 6b. Hesaba alınmayan satırlar: kaydırma ve dinamik yükseklik
+# ---------------------------------------------------------------------------
+
+
+class TestSkippedRowLayout:
+    """Uzun neden metinleri hücre içinde kaymalı; satırlar üst üste binmemeli.
+
+    Bu senaryo gerçek raporun 2. sayfasında görülen hatayı kilitler: uzun
+    ``message`` metni tek satırlık yüksekliğe sığdırılmaya çalışılıyor ve
+    komşu satırın üzerine biniyordu.
+    """
+
+    #: Raporun 2. sayfasında uzun nedene sahip gerçek satırlar.
+    LONG_REASON_ROWS = ("BOQ-012", "BOQ-014", "BOQ-015")
+
+    def _skipped_page_text(self, report) -> str:
+        pages = [
+            page.extract_text()
+            for page in PdfReader(BytesIO(build_pdf(report))).pages
+        ]
+        for text in pages:
+            if "Hesaba Alınmayan Satırlar" in text:
+                return text
+        raise AssertionError("Hesaba Alınmayan Satırlar bölümü bulunamadı")
+
+    def test_long_reason_is_not_truncated(self) -> None:
+        """Neden metni kesilmemeli: son cümlesi de metinde bulunmalı."""
+        report = demo_report()
+        text = self._skipped_page_text(report)
+
+        for row in report.skipped:
+            if row.boq_no in self.LONG_REASON_ROWS:
+                # Mesajın son parçası (kesilirse kaybolur) metinde olmalı.
+                tail = row.message.split("; ")[-1].strip(". ")
+                assert tail in text.replace("\n", " ").replace("  ", " "), (
+                    row.boq_no,
+                    tail,
+                )
+
+    def test_wrapped_lines_never_collide(self) -> None:
+        """Kaydırılan satırlar birbirine girmemeli — **ölçülen** satır aralığı.
+
+        Hatanın kesin imzası: uzun metin 4.2 mm'lik tek satıra sığdırılmaya
+        çalışıldığında satır tabanları arasındaki fark 2.55 pt'ye düşüyordu
+        (normal satır yüksekliği 11.9 pt). Bu test dikey konumları okuyup
+        aralığın asgari çizgi yüksekliğinin altına inmediğini doğrular.
+
+        Yalnızca metin çıkarmak yetmez: ``pypdf`` üst üste binmiş metni de
+        okur. Bu yüzden konumlar (``tm[5]``) karşılaştırılır.
+        """
+        report = demo_report()
+        reader = PdfReader(BytesIO(build_pdf(report)))
+        page = next(
+            p
+            for p in reader.pages
+            if "Hesaba Alınmayan Satırlar" in p.extract_text()
+        )
+
+        # Sabitler burada **literal** tutulur (modülden import edilmez):
+        # böylece sabitler geri alınsa bile test ImportError ile değil,
+        # gerçek geometri iddiasıyla başarısız olur.
+        # A4 yatay gövde: 297 - 2*12 = 273 mm. "Neden" sütunu = 273 - 140 mm.
+        reason_column_x = 273.0 - 140.0
+        # 4.2 mm'lik satır yüksekliği pt cinsinden.
+        line_height_pt = 4.2 * 72 / 25.4
+        offsets: list[float] = []
+
+        def visit(text, cm, tm, font_dict, font_size):
+            if text.strip() and float(tm[4]) >= reason_column_x:
+                offsets.append(round(float(tm[5]), 2))
+
+        page.extract_text(visitor_text=visit)
+        assert offsets, "neden sütununda metin bulunamadı"
+
+        unique = sorted(set(offsets), reverse=True)
+        gaps = [round(a - b, 2) for a, b in zip(unique, unique[1:])]
+        assert gaps
+        assert min(gaps) >= line_height_pt - 0.6, (
+            f"satır aralığı çok küçük: {min(gaps)} pt < {line_height_pt} pt "
+            f"(konumlar: {unique})"
+        )
+
+    def test_row_heights_grow_with_content(self) -> None:
+        """Daha uzun neden metni daha yüksek satır üretmeli (dinamik yükseklik)."""
+        from dataclasses import replace
+
+        from app.reports.pdf import _skipped_columns, _skipped_row_height
+
+        report = demo_report()
+        short = report.skipped[0]
+        long_message = "neden " * 120
+        long_row = replace(short, message=long_message)
+
+        pdf = _measure_pdf()
+        columns = _skipped_columns()
+
+        short_height = _skipped_row_height(
+            pdf,
+            columns,
+            (
+                short.boq_no,
+                short.description,
+                short.reason_label,
+                short.exclusion_reason_label or "—",
+                short.message,
+            ),
+        )
+        long_height = _skipped_row_height(
+            pdf,
+            columns,
+            (
+                long_row.boq_no,
+                long_row.description,
+                long_row.reason_label,
+                long_row.exclusion_reason_label or "—",
+                long_row.message,
+            ),
+        )
+
+        assert long_height > short_height, (short_height, long_height)
+
+    def test_skipped_section_repeats_header_on_continuation_page(self) -> None:
+        """Tablo sonraki sayfaya taşarsa başlık satırı orada da bulunmalı."""
+        from dataclasses import replace
+
+        from app.reports.models import ReportSkippedRow
+
+        base = demo_report()
+        long_message = (
+            "Satır hesap kapsamı dışında bırakıldı; hesaplamaya alınmaz. "
+            "Neden: açıklama katalogdaki bir aileyle eşleşmiyor. Benzer ölçü "
+            "veya kaplamaya otomatik düşürme yapılmaz."
+        )
+        rows = tuple(
+            ReportSkippedRow(
+                boq_no=f"BOQ-2{index:02d}",
+                description="muhtelif bağlantı elemanı",
+                reason="excluded",
+                reason_label="Kapsam dışı",
+                message=long_message,
+                exclusion_reason="catalog",
+                exclusion_reason_label="Katalogda karşılığı yok",
+            )
+            for index in range(20)
+        )
+        report = replace(base, skipped=rows)
+
+        reader = PdfReader(BytesIO(build_pdf(report)))
+        skipped_pages = [
+            page.extract_text()
+            for page in reader.pages
+            if "BOQ-2" in page.extract_text()
+        ]
+
+        assert len(skipped_pages) >= 2, "tablo birden fazla sayfaya taşmalı"
+        for text in skipped_pages:
+            assert "Neden kodu" in text, "başlık devam sayfasında yinelenmeli"
+            assert "Neden" in text
+
+    def test_skipped_rows_do_not_shrink_table_below_minimum(self) -> None:
+        """Çok kısa neden bile okunabilir asgari yükseklikte kalmalı."""
+        from app.reports.pdf import (
+            _SKIPPED_MIN_ROW_HEIGHT,
+            _skipped_columns,
+            _skipped_row_height,
+        )
+
+        column_count = len(_skipped_columns())
+        height = _skipped_row_height(
+            _measure_pdf(), _skipped_columns(), tuple("" for _ in range(column_count))
+        )
+
+        assert height >= _SKIPPED_MIN_ROW_HEIGHT
+
+
+def _measure_pdf():
+    """Yükseklik ölçümü için font yüklenmiş boş bir PDF."""
+    from app.reports.pdf import _BOLD, _REGULAR, FONT_DIR, ReportPdf
+
+    pdf = ReportPdf(title="ölçüm", generated_at_text="—")
+    pdf.add_font(_REGULAR, "", str(FONT_DIR / "DejaVuSans.ttf"))
+    pdf.add_font(_BOLD, "", str(FONT_DIR / "DejaVuSans-Bold.ttf"))
+    pdf.add_page()
+    return pdf
+
+
+# ---------------------------------------------------------------------------
+# 6c. PDF katmanı hesap yapmaz: toplamlar hesaplama motorundan gelir
+# ---------------------------------------------------------------------------
+
+
+class TestReportTotalsComeFromEngine:
+    """PDF/Excel toplamları **onaylara** bağlıdır, PDF düzenine değil.
+
+    Neden bu test var?
+    ------------------
+    Aynı 18 satırlık demo metraj, farklı kullanıcı onaylarıyla iki farklı
+    meşru toplam üretir:
+
+    * ``BOQ-009`` onaylı, ``BOQ-018`` kararsız → 14 hesaplanan satır,
+      1.086,000 m / 18.194,220 kg (sahada üretilen canlı rapor).
+    * ``BOQ-009`` onay bekliyor, ``BOQ-018`` reddedildi → 13 hesaplanan
+      satır, 966,000 m / 18.005,820 kg (test fixture'ı).
+
+    İkisi de doğrudur; fark PDF kodundan değil **girdi onaylarından** gelir.
+    Bu test, aynı girdi + aynı onay verildiğinde PDF, Excel ve hesaplama
+    motorunun birebir aynı toplamı verdiğini kilitler. Böylece ileride
+    "PDF toplamı değişti" şüphesi doğduğunda kaynağın rapor katmanı mı
+    yoksa onaylar mı olduğu tek adımda ayrılabilir.
+    """
+
+    #: Canlı raporun onay imzası: BOQ-009 onaylı, BOQ-018 kararsız.
+    LIVE_APPROVED = ("BOQ-009",)
+    LIVE_WITHOUT_DECISION = ("BOQ-018",)
+
+    def _run_with(self, *, approve: tuple[str, ...], skip_decision: tuple[str, ...]):
+        """Demo metrajı verilen onay kümesiyle hesaplar."""
+        from decimal import Decimal
+
+        from app.api.schemas import (
+            CalculateRequest,
+            ClientDecision,
+            ClientRow,
+        )
+        from app.api.service import run_calculation
+        from tests.fixtures.demo_boq import DEMO_ROWS
+
+        base = demo_request()
+        rows = [
+            ClientRow(
+                source_row=index + 2,
+                boq_no=row.no,
+                description=row.description,
+                quantity=row.quantity,
+                unit=row.unit,
+                waste_percent=(
+                    row.waste_rate * Decimal(100)
+                    if row.waste_rate is not None
+                    else None
+                ),
+            )
+            for index, row in enumerate(DEMO_ROWS)
+        ]
+        decisions = [
+            decision
+            for decision in base.decisions
+            if decision.boq_no not in skip_decision
+        ]
+        codes = {
+            "BOQ-009": "FLAT-40x5-S235-B",
+        }
+        for boq_no in approve:
+            decisions.append(
+                ClientDecision(
+                    boq_no=boq_no,
+                    action="approve",
+                    code=codes[boq_no],
+                    reason="test onayı",
+                )
+            )
+        return run_calculation(CalculateRequest(rows=rows, decisions=decisions))
+
+    @staticmethod
+    def _pdf_totals(payload: bytes) -> tuple[str, str]:
+        """PDF metninden özet toplamlarını çıkarır."""
+        import re
+
+        text = " ".join(
+            page.extract_text() for page in PdfReader(BytesIO(payload)).pages
+        )
+        match = re.search(
+            r"Toplam sipariş uzunluğu\s+([\d.,]+ m)\s+Bilinen teorik ağırlık\s+([\d.,]+ kg)",
+            text,
+        )
+        assert match, "özet toplamları PDF'te bulunamadı"
+        return match.group(1), match.group(2)
+
+    def test_pdf_and_excel_totals_match_engine_for_same_approvals(self) -> None:
+        """Aynı girdi + aynı onay → motor, PDF ve Excel aynı toplamı verir."""
+        from openpyxl import load_workbook
+
+        run = self._run_with(
+            approve=self.LIVE_APPROVED,
+            skip_decision=self.LIVE_WITHOUT_DECISION,
+        )
+        result = run.result
+        report = build_run_report(run, generated_at=FIXED_NOW)
+
+        expected_order = sum(
+            group.order_length_m
+            for group in result.groups
+            if group.order_length_m is not None
+        )
+        expected_weight = sum(
+            group.weight_kg for group in result.groups if group.weight_kg is not None
+        )
+
+        # Motorun kendi toplamı — rapor katmanından bağımsız referans.
+        assert expected_order == 1086
+        assert str(expected_weight) == "18194.220"
+
+        pdf_order, pdf_weight = self._pdf_totals(render_report(report, kind="pdf"))
+        assert pdf_order == "1.086,000 m"
+        assert pdf_weight == "18.194,220 kg"
+
+        # Excel aynı toplamı vermeli: iki çıktı biçimi ayrışmamalı.
+        workbook = load_workbook(BytesIO(render_report(report, kind="excel")))
+        sheet = workbook[workbook.sheetnames[0]]
+        labels = {
+            str(row[0]): row[1]
+            for row in sheet.iter_rows(values_only=True)
+            if row and row[0]
+        }
+        assert labels["Toplam sipariş uzunluğu (m)"] == 1086
+        assert str(labels["Bilinen teorik ağırlık (kg)"]) in {
+            "18194.220",
+            "18194.22",
+        }
+
+    def test_engine_totals_are_independent_of_pdf_layout(self) -> None:
+        """PDF düzeni değişse de motorun toplamı değişmez.
+
+        Aynı ``CalculationRun`` nesnesinden üretilen rapor, PDF çizim
+        kodundan **önce** hesaplanmış toplamı taşır; PDF yalnızca biçimler.
+        """
+        run = self._run_with(
+            approve=self.LIVE_APPROVED,
+            skip_decision=self.LIVE_WITHOUT_DECISION,
+        )
+        report = build_run_report(run, generated_at=FIXED_NOW)
+
+        # Rapor modelindeki toplamlar, motordan gelen değerlerle aynı olmalı.
+        assert report.summary.total_order_length_m == 1086
+        assert str(report.summary.known_weight_kg) == "18194.220"
+        assert report.summary.calculated_rows == 14
+        assert report.summary.skipped_rows == 4
 
 
 # ---------------------------------------------------------------------------
