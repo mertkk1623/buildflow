@@ -29,6 +29,38 @@ from app.ai.models import AiErrorKind
 #: Varsayılan istek zaman aşımı (saniye). Üzeri yapılandırmadan verilebilir.
 DEFAULT_TIMEOUT_SECONDS = 10.0
 
+#: Yanıtın üst sınırı. JSON yanıtı kısa olduğu için cömert bir değer yeterlidir;
+#: sınır verilmezse sağlayıcı varsayılanı (bazı modellerde 64K) kullanılır ve
+#: yanıt gereksiz yere uzayabilir.
+DEFAULT_MAX_TOKENS = 512
+
+#: HTTP durum kodlarının güvenli hata türlerine eşlemesi.
+#:
+#: Neden ayrı türler: tek bir ``provider-error`` altında toplandığında
+#: "anahtar mı geçersiz, bakiye mi bitti, model adı mı emekli" ayırt edilemiyordu.
+#: Eşleme yalnızca **durum koduna** dayanır; yanıt gövdesi hiç okunmaz, böylece
+#: sağlayıcı metni (potansiyel olarak PII/anahtar izi) hiçbir yere taşınmaz.
+_HTTP_STATUS_KINDS: dict[int, AiErrorKind] = {
+    400: AiErrorKind.INVALID_REQUEST,
+    401: AiErrorKind.AUTH_FAILED,
+    402: AiErrorKind.INSUFFICIENT_BALANCE,
+    403: AiErrorKind.AUTH_FAILED,
+    404: AiErrorKind.INVALID_REQUEST,
+    408: AiErrorKind.UNAVAILABLE,
+    413: AiErrorKind.INVALID_REQUEST,
+    422: AiErrorKind.INVALID_REQUEST,
+    429: AiErrorKind.RATE_LIMITED,
+}
+
+
+def _kind_for_status(status: int) -> AiErrorKind:
+    """HTTP durum kodunu güvenli hata türüne çevirir.
+
+    Eşlenmemiş her kod — ``5xx`` sunucu arızaları ve beklenmeyen kodlar dahil —
+    ``PROVIDER_ERROR`` olarak kalır.
+    """
+    return _HTTP_STATUS_KINDS.get(status, AiErrorKind.PROVIDER_ERROR)
+
 
 class AiProviderError(Exception):
     """Sağlayıcı çağrısı başarısız. ``detail`` yalnızca sunucu logları içindir."""
@@ -95,11 +127,15 @@ class OpenAICompatibleProvider:
         api_key: str,
         model: str,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        disable_thinking: bool = False,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._model = model
         self._timeout = timeout_seconds
+        self._max_tokens = max_tokens
+        self._disable_thinking = disable_thinking
 
     def __repr__(self) -> str:  # pragma: no cover - anahtar sızmasın
         return (
@@ -108,22 +144,35 @@ class OpenAICompatibleProvider:
         )
 
     def suggest(self, system_prompt: str, user_prompt: str) -> str:
-        body = json.dumps(
-            {
-                "model": self._model,
-                # Yaratıcılık istenmez: aynı girdi aynı öneriyi üretmeli.
-                "temperature": 0,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "response_format": {"type": "json_object"},
-            }
-        ).encode("utf-8")
+        body: dict[str, object] = {
+            "model": self._model,
+            # Yaratıcılık istenmez: aynı girdi aynı öneriyi üretmeli.
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            # Yanıt kısa bir JSON nesnesidir; sınır verilmezse model gereksiz
+            # uzun üretim yapabilir veya yanıt kesilebilir.
+            "max_tokens": self._max_tokens,
+        }
+
+        if self._disable_thinking:
+            # Yalnızca isteğe bağlı (opt-in) gönderilir: ``thinking`` standart
+            # OpenAI alanı **değildir**. DeepSeek bunu OpenAI biçiminde kabul
+            # eder, ancak katı uç noktalar bilinmeyen alanda 400 döndürür
+            # ("Unrecognized request argument supplied"). Bu yüzden varsayılan
+            # kapalıdır ve sağlayıcı bunu destekliyorsa açıkça etkinleştirilir.
+            # Thinking modu DeepSeek'te varsayılan AÇIK olduğu için kapatmak
+            # gecikmeyi azaltır ve ``temperature`` alanını anlamlı kılar.
+            body["thinking"] = {"type": "disabled"}
+
+        payload = json.dumps(body).encode("utf-8")
 
         request = urllib.request.Request(
             url=f"{self._base_url}/chat/completions",
-            data=body,
+            data=payload,
             method="POST",
             headers={
                 "Content-Type": "application/json",
@@ -136,10 +185,9 @@ class OpenAICompatibleProvider:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
-            # Gövde okunmaz: sağlayıcı yanıtı istemciye taşınmaz.
-            raise AiProviderError(
-                AiErrorKind.PROVIDER_ERROR, f"HTTP {exc.code}"
-            ) from exc
+            # Gövde **okunmaz**: sağlayıcı yanıtı istemciye taşınmaz ve
+            # içinde anahtar/PII izi olabilir. Yalnızca durum kodu sınıflanır.
+            raise AiProviderError(_kind_for_status(exc.code), f"HTTP {exc.code}") from exc
         except (TimeoutError, urllib.error.URLError, OSError) as exc:
             # Zaman aşımı ve bağlantı hataları aynı güvenli sonuca düşer.
             raise AiProviderError(

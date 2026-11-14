@@ -141,6 +141,10 @@ class AiErrorOut(ApiModel):
         "inconsistent-response",
         "provider-unavailable",
         "provider-error",
+        "provider-auth-failed",
+        "provider-insufficient-balance",
+        "provider-invalid-request",
+        "provider-rate-limited",
     ]
     message: str
 

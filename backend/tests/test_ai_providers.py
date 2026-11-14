@@ -271,7 +271,40 @@ class TestHttpProvider:
         assert captured["body"]["temperature"] == 0
         assert captured["body"]["messages"][0]["role"] == "system"
 
-    def test_http_error_becomes_provider_error(self, monkeypatch) -> None:
+    def test_request_body_carries_json_mode_and_token_limit(self, monkeypatch) -> None:
+        """DeepSeek uyumu: JSON modu + max_tokens; standart dışı alan yok."""
+        captured: dict = {}
+
+        def fake_urlopen(request, timeout):
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return ok_response('{"status": "no_match"}')
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        self._provider().suggest("s", "u")
+
+        body = captured["body"]
+        assert body["response_format"] == {"type": "json_object"}
+        assert body["max_tokens"] == 512
+        # ``thinking`` standart OpenAI alanı değildir; varsayılan gövdede
+        # bulunmamalı, aksi hâlde katı uç noktalar 400 döndürür.
+        assert "thinking" not in body
+
+    def test_thinking_can_be_disabled_explicitly(self, monkeypatch) -> None:
+        """DeepSeek'te thinking modu yalnızca açıkça istenirse kapatılır."""
+        captured: dict = {}
+
+        def fake_urlopen(request, timeout):
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return ok_response('{"status": "no_match"}')
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        self._provider(disable_thinking=True).suggest("s", "u")
+
+        assert captured["body"]["thinking"] == {"type": "disabled"}
+
+    def test_http_429_becomes_rate_limited(self, monkeypatch) -> None:
         def fake_urlopen(request, timeout):
             raise urllib.error.HTTPError(
                 request.full_url, 429, "Too Many Requests", {}, io.BytesIO(b"gizli")
@@ -282,9 +315,93 @@ class TestHttpProvider:
         with pytest.raises(AiProviderError) as excinfo:
             self._provider().suggest("s", "u")
 
-        assert excinfo.value.kind is AiErrorKind.PROVIDER_ERROR
+        assert excinfo.value.kind is AiErrorKind.RATE_LIMITED
         assert "gizli" not in excinfo.value.detail
         assert SECRET not in str(excinfo.value)
+
+    @pytest.mark.parametrize("status", [500, 502, 503, 504])
+    def test_http_5xx_becomes_provider_error(self, monkeypatch, status: int) -> None:
+        def fake_urlopen(request, timeout):
+            raise urllib.error.HTTPError(
+                request.full_url, status, "Sunucu hatası", {}, io.BytesIO(b"gizli")
+            )
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        with pytest.raises(AiProviderError) as excinfo:
+            self._provider().suggest("s", "u")
+
+        assert excinfo.value.kind is AiErrorKind.PROVIDER_ERROR
+        assert "gizli" not in excinfo.value.detail
+
+    @pytest.mark.parametrize(
+        ("status", "expected"),
+        [
+            (400, AiErrorKind.INVALID_REQUEST),
+            (401, AiErrorKind.AUTH_FAILED),
+            (402, AiErrorKind.INSUFFICIENT_BALANCE),
+            (403, AiErrorKind.AUTH_FAILED),
+            (404, AiErrorKind.INVALID_REQUEST),
+            (422, AiErrorKind.INVALID_REQUEST),
+        ],
+    )
+    def test_http_status_is_classified_safely(
+        self, monkeypatch, status: int, expected: AiErrorKind
+    ) -> None:
+        """Her durum kodu kendi güvenli türüne ayrılır (hepsi tek türe düşmez)."""
+
+        def fake_urlopen(request, timeout):
+            raise urllib.error.HTTPError(
+                request.full_url, status, "hata", {}, io.BytesIO(b"gizli")
+            )
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        with pytest.raises(AiProviderError) as excinfo:
+            self._provider().suggest("s", "u")
+
+        assert excinfo.value.kind is expected
+        assert "gizli" not in excinfo.value.detail
+
+    def test_error_body_is_never_read(self, monkeypatch) -> None:
+        """Hata gövdesi okunmaz: anahtar/PII taşıyabilecek metin hiç alınmaz."""
+
+        class Boom(io.BytesIO):
+            def read(self, *args, **kwargs):  # pragma: no cover - çağrılmamalı
+                raise AssertionError("HTTP hata gövdesi okunmamalı")
+
+        def fake_urlopen(request, timeout):
+            raise urllib.error.HTTPError(
+                request.full_url,
+                400,
+                "Bad Request",
+                {},
+                Boom(b'{"error": {"message": "Model Not Exist"}}'),
+            )
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        with pytest.raises(AiProviderError) as excinfo:
+            self._provider().suggest("s", "u")
+
+        assert excinfo.value.kind is AiErrorKind.INVALID_REQUEST
+        assert "Model Not Exist" not in excinfo.value.detail
+        assert SECRET not in excinfo.value.detail
+
+    def test_http_error_detail_never_contains_api_key(self, monkeypatch) -> None:
+        def fake_urlopen(request, timeout):
+            raise urllib.error.HTTPError(
+                request.full_url, 401, "Unauthorized", {}, io.BytesIO(b"")
+            )
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        with pytest.raises(AiProviderError) as excinfo:
+            self._provider().suggest("s", "u")
+
+        assert SECRET not in str(excinfo.value)
+        assert SECRET not in repr(excinfo.value)
+        assert SECRET not in excinfo.value.detail
 
     @pytest.mark.parametrize(
         "exception",
@@ -371,3 +488,73 @@ class TestExtractContent:
     def test_invalid_utf8_raises(self) -> None:
         with pytest.raises(AiProviderError):
             _extract_content(b"\xff\xfe\x00garbage")
+
+
+class TestJsonModeEdgeCases:
+    """DeepSeek JSON modu: geçersiz çıktı boşlukla değiştirilebilir.
+
+    Resmî doküman: model çıktısı JSON olarak tanınamazsa API, JSON olmayan
+    içeriği **boşluk** (`U+0020`) ile değiştirir. ``content`` o zaman yalnızca
+    boşluk içerir (``finish_reason=stop`` olsa bile). Bu durum sağlayıcı hatası
+    değildir; doğrulama katmanı reddetmelidir.
+    """
+
+    def test_whitespace_only_content_reaches_validation(self, monkeypatch) -> None:
+        """Boşluk-only içerik sağlayıcı katmanından **geçer**, doğrulama reddeder."""
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda request, timeout: ok_response("   "),
+        )
+
+        provider = OpenAICompatibleProvider(
+            base_url="https://example.test/v1", api_key=SECRET, model="m"
+        )
+
+        assert provider.suggest("s", "u") == "   "
+
+    def test_empty_string_content_is_rejected_by_validation(self) -> None:
+        from app.ai.validate import AiValidationError, parse_suggestion
+
+        with pytest.raises(AiValidationError) as excinfo:
+            parse_suggestion("   ", candidates=("A", "B"))
+
+        assert excinfo.value.kind is AiErrorKind.INVALID_PAYLOAD
+
+    def test_empty_content_reported_as_provider_error(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda request, timeout: io.BytesIO(
+                b'{"choices": [{"message": {"content": ""}}]}'
+            ),
+        )
+
+        provider = OpenAICompatibleProvider(
+            base_url="https://example.test/v1", api_key=SECRET, model="m"
+        )
+
+        # Boş metin sağlayıcıda hata değildir; doğrulama katmanı reddeder.
+        assert provider.suggest("s", "u") == ""
+
+
+class TestPromptJsonModeCompatibility:
+    """DeepSeek: ``response_format=json_object`` için prompt'ta 'json' geçmeli."""
+
+    def test_system_prompt_contains_lowercase_json(self) -> None:
+        from app.ai.prompt import SYSTEM_PROMPT
+
+        assert "json" in SYSTEM_PROMPT
+
+    def test_system_prompt_still_forbids_calculation(self) -> None:
+        from app.ai.prompt import SYSTEM_PROMPT
+
+        lowered = SYSTEM_PROMPT.lower()
+        assert "hesaplama yapma" in lowered
+        assert "miktar" in lowered
+        assert "ağırlık" in lowered
+
+    def test_request_and_prompt_are_consistent(self) -> None:
+        """JSON modu isteniyorsa prompt da bunu söylemeli; ayrışmamalı."""
+        from app.ai.prompt import SYSTEM_PROMPT
+
+        assert "response_format" not in SYSTEM_PROMPT  # sağlayıcı ayrıntısı sızmaz
+        assert "json" in SYSTEM_PROMPT

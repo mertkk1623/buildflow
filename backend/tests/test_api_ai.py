@@ -504,6 +504,66 @@ class TestRejectedResponses:
         assert ai["error"]["code"] == "provider-error"
         assert "HTTP 503" not in ai["error"]["message"]
 
+    @pytest.mark.parametrize(
+        ("kind", "code"),
+        [
+            (AiErrorKind.AUTH_FAILED, "provider-auth-failed"),
+            (AiErrorKind.INSUFFICIENT_BALANCE, "provider-insufficient-balance"),
+            (AiErrorKind.INVALID_REQUEST, "provider-invalid-request"),
+            (AiErrorKind.RATE_LIMITED, "provider-rate-limited"),
+        ],
+    )
+    def test_provider_error_kinds_are_distinguishable(
+        self, client: TestClient, demo_workbook: Path, scripted, kind, code
+    ) -> None:
+        """Her sağlayıcı hatası ayrı kodla döner; kullanıcı nedenini ayırt eder."""
+        scripted([AiProviderError(kind, "HTTP 4xx")])
+
+        body = analyze_ok(client, demo_workbook)
+        ai = rows_by_no(body)["BOQ-003"]["ai"]
+
+        assert ai["error"]["code"] == code
+        assert ai["error"]["message"]
+        # Sunucu ayrıntısı istemciye taşınmaz.
+        assert "HTTP 4xx" not in ai["error"]["message"]
+
+    def test_whitespace_only_reply_keeps_row_pending(
+        self, client: TestClient, demo_workbook: Path, scripted
+    ) -> None:
+        """DeepSeek JSON modu boşluk-only içerik döndürürse satır pending kalır."""
+        scripted(["   "])
+
+        body = analyze_ok(client, demo_workbook)
+        rows = rows_by_no(body)
+
+        assert rows["BOQ-003"]["status"] == "pending"
+        assert rows["BOQ-003"]["match"]["matched_code"] is None
+        assert rows["BOQ-003"]["ai"]["error"]["code"] == "invalid-payload"
+        assert body["summary"]["pending"] == 4
+
+    def test_all_provider_calls_failing_keeps_deterministic_result(
+        self, client: TestClient, demo_workbook: Path, scripted
+    ) -> None:
+        """AI tamamen çökse bile satır dağılımı ve onay akışı bozulmaz."""
+        scripted([AiProviderError(AiErrorKind.AUTH_FAILED, "HTTP 401")])
+
+        body = analyze_ok(client, demo_workbook)
+
+        assert body["summary"] == {
+            "total_rows": 18,
+            "valid_rows": 18,
+            "invalid_rows": 0,
+            "blank_rows_skipped": 0,
+            "rule": 10,
+            "pending": 4,
+            "excluded": 4,
+            "invalid": 0,
+        }
+        # Hiçbir satır AI yüzünden onaylanmış sayılmaz.
+        for row in body["rows"]:
+            if row["status"] == "pending":
+                assert row["match"]["matched_code"] is None
+
     def test_provider_failure_does_not_break_analysis(
         self, client: TestClient, demo_workbook: Path, scripted
     ) -> None:

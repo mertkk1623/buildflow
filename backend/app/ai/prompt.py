@@ -36,8 +36,8 @@ Kurallar (ihlal edilemez):
    arasında bir sayı olmalıdır.
 6. Açıklamada açıkça yazan bir özellik (grup, ölçü, kalite, kaplama) adayla
    çelişiyorsa o adayı önerme.
-7. Yanıtın YALNIZCA şu JSON nesnesi olsun; açıklama, markdown veya kod bloğu
-   ekleme:
+7. Yanıtın YALNIZCA bir json nesnesi olsun; açıklama, markdown veya kod
+   bloğu ekleme. Biçim tam olarak şöyle olmalı:
 {"status": "suggested|ambiguous|no_match", "suggested_code": null,
  "confidence": 0.0, "reason": "kısa gerekçe"}
 """

@@ -89,6 +89,10 @@ export type AiErrorCode =
   | 'inconsistent-response'
   | 'provider-unavailable'
   | 'provider-error'
+  | 'provider-auth-failed'
+  | 'provider-insufficient-balance'
+  | 'provider-invalid-request'
+  | 'provider-rate-limited'
 
 export type AiErrorOut = {
   code: AiErrorCode

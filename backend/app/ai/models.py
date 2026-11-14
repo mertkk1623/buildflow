@@ -66,6 +66,18 @@ class AiErrorKind(str, Enum):
     UNAVAILABLE = "provider-unavailable"
     #: Sağlayıcı beklenmeyen bir hata döndürdü.
     PROVIDER_ERROR = "provider-error"
+    #: Sağlayıcı kimlik doğrulamayı reddetti (HTTP 401/403).
+    #: Nedeni ayırmak teşhisi hızlandırır: 401 "anahtar geçersiz",
+    #: 400 "istek biçimi/model adı hatalı" ile karıştırılmamalıdır.
+    AUTH_FAILED = "provider-auth-failed"
+    #: Hesap bakiyesi veya kotası yetersiz (HTTP 402).
+    INSUFFICIENT_BALANCE = "provider-insufficient-balance"
+    #: İstek sağlayıcı tarafından geçersiz bulundu (HTTP 400/422).
+    #: En yaygın neden: emekliye ayrılmış model adı veya desteklenmeyen
+    #: gövde alanı (ör. JSON modu kuralı ihlali).
+    INVALID_REQUEST = "provider-invalid-request"
+    #: Hız/kota sınırı aşıldı (HTTP 429).
+    RATE_LIMITED = "provider-rate-limited"
 
 
 #: Kullanıcıya gösterilecek kısa açıklamalar. Sunucu ayrıntısı içermez.
@@ -78,6 +90,10 @@ ERROR_MESSAGES: dict[AiErrorKind, str] = {
     AiErrorKind.INCONSISTENT: "AI yanıtı kendi içinde tutarsız.",
     AiErrorKind.UNAVAILABLE: "AI servisine ulaşılamadı.",
     AiErrorKind.PROVIDER_ERROR: "AI servisi beklenmeyen bir yanıt döndürdü.",
+    AiErrorKind.AUTH_FAILED: "AI servisi kimlik doğrulamayı reddetti.",
+    AiErrorKind.INSUFFICIENT_BALANCE: "AI servisi hesap bakiyesi/kotası yetersiz dedi.",
+    AiErrorKind.INVALID_REQUEST: "AI servisi isteği geçersiz buldu.",
+    AiErrorKind.RATE_LIMITED: "AI servisi hız sınırına takıldı; sonra deneyin.",
 }
 
 
