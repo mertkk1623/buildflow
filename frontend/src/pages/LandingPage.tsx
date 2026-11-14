@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { Badge } from '../components/ui/Status'
 import {
@@ -9,7 +9,7 @@ import {
   IconFile,
   IconInfo,
 } from '../components/ui/icons'
-import { EXAMPLE_FILES } from '../lib/examples'
+import { EXAMPLE_FILES, SAMPLE_PROJECT_FILE } from '../lib/examples'
 import { useWorkflow } from '../state/WorkflowContext'
 
 /**
@@ -85,6 +85,7 @@ const ROADMAP = [
 ]
 
 const NAV = [
+  { href: '#hizli-baslangic', label: 'Hızlı başlangıç' },
   { href: '#ornekler', label: 'Örnekler' },
   { href: '#akis', label: 'Akış' },
   { href: '#ozellikler', label: 'Özellikler' },
@@ -92,6 +93,7 @@ const NAV = [
 ]
 
 export default function LandingPage() {
+  const navigate = useNavigate()
   const {
     analyzeView,
     counts,
@@ -101,6 +103,9 @@ export default function LandingPage() {
     saveTemplate,
     templateStatus,
     templateError,
+    loadSample,
+    sampleStatus,
+    sampleError,
   } = useWorkflow()
 
   const nextStep = calculation
@@ -110,6 +115,13 @@ export default function LandingPage() {
       : { to: '/upload', label: 'Canlı demoyu başlat' }
 
   const downloadingTemplate = templateStatus === 'downloading'
+  const loadingSample = sampleStatus === 'loading'
+
+  /** Örnek veriyi yükleyip analizi başlatır; başarılıysa analiz ekranına geçer. */
+  const startSample = async () => {
+    const ok = await loadSample()
+    if (ok) navigate('/analysis')
+  }
 
   return (
     <div className="min-h-dvh bg-steel-25">
@@ -320,6 +332,134 @@ export default function LandingPage() {
                 <Badge tone="neutral">Sunucu hesaplar</Badge>
               </div>
             </figure>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Hızlı başlangıç                                                  */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          id="hizli-baslangic"
+          className="scroll-mt-20 border-t border-steel-200 py-12"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-h2 text-steel-900">
+                Hızlı başlangıç ve örnek veri
+              </h2>
+              <p className="mt-1.5 max-w-2xl text-body text-steel-500">
+                Dosya hazırlamadan deneyin. Örnek metraj gerçek bir dosyadır;
+                yükleme, analiz ve onay akışı birebir aynı yoldan çalışır.
+              </p>
+            </div>
+            <Badge tone="copper">Kurulum gerekmez</Badge>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            {/* Eylemler */}
+            <div className="rounded-lg border border-steel-200 bg-white p-5">
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => void startSample()}
+                  disabled={loadingSample}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-ink bg-ink px-4 py-2 text-center text-body font-medium leading-tight text-white transition-colors duration-[120ms] hover:bg-steel-800 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <span aria-hidden>🚀</span>
+                  <span className="min-w-0">
+                    {loadingSample
+                      ? 'Örnek veri hazırlanıyor…'
+                      : 'Örnek Veri ile Hemen Dene (AI Demo)'}
+                  </span>
+                  {!loadingSample && <IconArrowRight />}
+                </button>
+
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => void saveTemplate()}
+                    disabled={downloadingTemplate}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-steel-300 bg-white px-3 text-sm font-medium text-steel-800 transition-colors duration-[120ms] hover:bg-steel-50 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <span aria-hidden>📥</span>
+                    {downloadingTemplate
+                      ? 'İndiriliyor…'
+                      : 'Boş Veri Şablonunu İndir'}
+                  </button>
+
+                  <a
+                    href={SAMPLE_PROJECT_FILE.href}
+                    download={SAMPLE_PROJECT_FILE.name}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-steel-300 bg-white px-3 text-sm font-medium text-steel-800 transition-colors duration-[120ms] hover:bg-steel-50"
+                  >
+                    <span aria-hidden>📊</span>
+                    Örnek Dolu Dosyayı İndir
+                    <span className="sr-only">
+                      : {SAMPLE_PROJECT_FILE.name}
+                    </span>
+                  </a>
+                </div>
+              </div>
+
+              {templateError && (
+                <p className="mt-3 flex items-start gap-2 text-sm text-danger-fg">
+                  <IconAlert className="mt-0.5" />
+                  <span>
+                    {templateError.title}
+                    {templateError.suggestion && ` ${templateError.suggestion}`}
+                  </span>
+                </p>
+              )}
+
+              {sampleError && (
+                <p className="mt-3 flex items-start gap-2 text-sm text-danger-fg">
+                  <IconAlert className="mt-0.5" />
+                  <span>
+                    {sampleError.message} {sampleError.suggestion}
+                  </span>
+                </p>
+              )}
+
+              <p className="mt-3 text-xs text-steel-500">
+                “Hemen dene” dosya indirmez: örnek metrajı alıp doğrudan
+                analize verir. Boş şablon sunucuda üretilir (
+                <span className="font-mono">GET /api/template</span>).
+              </p>
+            </div>
+
+            {/* Bilgi notu */}
+            <div className="rounded-lg border border-dashed border-steel-300 bg-steel-50 p-5">
+              <div className="flex items-center gap-2">
+                <IconInfo className="text-steel-500" />
+                <p className="text-sm font-semibold text-steel-800">
+                  Örnek veri seti
+                </p>
+                <Badge tone="neutral">40 satır</Badge>
+              </div>
+              <p className="mt-2 text-sm text-steel-600">
+                Örnek veri seti; <span className="font-medium">AI eşleştirme
+                önerisi</span>, <span className="font-medium">onay akışı</span>{' '}
+                ve <span className="font-medium">kapsam dışı satır
+                raporlaması</span> özelliklerini test etmeniz için gerçekçi
+                senaryolar içerir.
+              </p>
+              <ul className="mt-3 space-y-2 text-sm text-steel-600">
+                {[
+                  '14 katalog kaleminin tamamı; aynı kodu isteyen farklı iş kalemleri tek satın alma kaleminde birleşir.',
+                  '5 satır onay bekler: AI yalnızca bu satırlarda öneri üretir, öneri otomatik onaylanmaz.',
+                  'Yüksek fireli pozlar (%12 ve %9) sipariş miktarını net metrajın belirgin üzerine çıkarır.',
+                  'Üç kapsam dışı nedeni birlikte görünür: katalog dışı kaplama, boş fire ve “adet” birimi.',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <IconCheck className="mt-0.5 text-success-fg" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 font-mono text-xs text-steel-500">
+                {SAMPLE_PROJECT_FILE.name}
+              </p>
+            </div>
           </div>
         </section>
 

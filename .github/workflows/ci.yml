@@ -46,7 +46,7 @@ jobs:
         run: python -m pytest
 
       - name: Run pyflakes
-        run: python -m pyflakes app tests
+        run: python -m pyflakes app tests tools
 
   frontend:
     name: Frontend (vitest + build)

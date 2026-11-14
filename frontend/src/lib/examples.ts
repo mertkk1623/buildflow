@@ -75,3 +75,49 @@ export const EXAMPLE_FILES: ExampleFile[] = [
 export const DEMO_METRAJ_FILE = EXAMPLE_FILES.find(
   (file) => file.kind === 'metraj',
 )
+
+/* --------------------------------------------------------------------------
+ * Hızlı başlangıç — kapsamlı proje örneği
+ * -------------------------------------------------------------------------- */
+
+/** `.xlsx` medya tipi — yükleme akışıyla aynı. */
+const XLSX_MEDIA_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+/**
+ * 40 satırlık kapsamlı proje metrajı.
+ *
+ * `EXAMPLE_FILES` listesine **bilinçli olarak** eklenmez: o liste, depoda
+ * karşılığı olan rapor çıktılarını gösterir. Bu dosya ise "hızlı başlangıç"
+ * panelinin veri kümesidir; tek tıkla analiz edilir.
+ *
+ * İçerik `templates/proje_ornek_metraj.xlsx` ile birebir aynıdır.
+ */
+export const SAMPLE_PROJECT_FILE: ExampleFile = {
+  name: 'proje-ornek-metraj.xlsx',
+  label: 'Örnek proje metrajı',
+  format: 'xlsx',
+  description:
+    '40 satırlık kapsamlı metraj: 14 katalog kalemi, 5 onay bekleyen satır, üç kapsam dışı nedeni ve yüksek fireli pozlar.',
+  href: `${EXAMPLES_BASE}/proje-ornek-metraj.xlsx`,
+  action: 'download',
+  kind: 'metraj',
+}
+
+/**
+ * Örnek metrajı `File` olarak getirir — dosya indirmeden analiz için.
+ *
+ * Tek kullanım: "Örnek veri ile hemen dene". Dosya **yine de** sunucuya
+ * gönderilir; istemci sahte bir analiz sonucu üretmez. Böylece demo, gerçek
+ * yükleme akışıyla birebir aynı yoldan geçer ve örnek veri tek kaynaktan gelir.
+ */
+export async function fetchSampleProjectFile(): Promise<File> {
+  const response = await fetch(SAMPLE_PROJECT_FILE.href)
+  if (!response.ok) {
+    throw new Error(`Örnek dosya alınamadı (HTTP ${response.status}).`)
+  }
+  const blob = await response.blob()
+  return new File([blob], SAMPLE_PROJECT_FILE.name, {
+    type: XLSX_MEDIA_TYPE,
+  })
+}

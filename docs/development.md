@@ -78,15 +78,15 @@ npm run build        # tsc -b && vite build
 ## Testler
 
 ```powershell
-# Backend - 871 test
+# Backend - 993 test
 cd backend
 .\.venv\Scripts\Activate.ps1
 pytest
 
 # Backend lint
-python -m pyflakes app tests
+python -m pyflakes app tests tools
 
-# Frontend - 178 test / 9 dosya
+# Frontend - 202 test / 10 dosya
 cd ..\frontend
 npm test
 
@@ -101,7 +101,7 @@ kontrolü çalıştırır:
 
 | İş | Adımlar |
 |---|---|
-| `backend` | Python 3.12 · `pip install -e ".[dev]"` · `pytest` · `pyflakes app tests` |
+| `backend` | Python 3.12 · `pip install -e ".[dev]"` · `pytest` · `pyflakes app tests tools` |
 | `frontend` | Node 22.23.5 · `npm ci` · `npm test` · `npm run build` |
 
 `pyflakes` backend'in `dev` bağımlılıkları arasındadır; `.[dev]` kurulumuyla

@@ -1,11 +1,12 @@
 # Excel Şablonları — Aşama 4.3
 
-Bu klasördeki iki dosya **elle düzenlenmemelidir**; kodla üretilir.
+Bu klasördeki üç dosya **elle düzenlenmemelidir**; kodla üretilir.
 
 | Dosya | Nedir | Üreten |
 |---|---|---|
 | `metraj_sablonu.xlsx` | Kullanıcıya verilecek boş metraj şablonu (4 örnek satır + kullanım sayfası) | `python -m app.excel -o metraj_sablonu.xlsx` |
 | `ornek_metraj.xlsx` | 18 satırlık demo metraj; okuyucu ve hesap motoru doğrulaması için | `tests/fixtures/excel_files.py` → `build_demo_workbook()` |
+| `proje_ornek_metraj.xlsx` | 40 satırlık kapsamlı örnek proje; ana sayfadaki "Hemen dene" ve indirme bağlantısının kaynağı | `python tools/make_sample_fixtures.py` |
 
 ## Şablonu yeniden üretmek
 
@@ -13,6 +14,24 @@ Bu klasördeki iki dosya **elle düzenlenmemelidir**; kodla üretilir.
 cd backend
 python -m app.excel -o ..\templates\metraj_sablonu.xlsx
 ```
+
+## Örnek proje dosyasını yeniden üretmek
+
+`proje_ornek_metraj.xlsx` tek bir kaynaktan üretilir (`app/excel/sample.py` →
+`SAMPLE_ROWS`). Aynı komut üç türetilmiş çıktıyı birden tazeler:
+
+1. `templates/proje_ornek_metraj.xlsx`
+2. `frontend/public/examples/proje-ornek-metraj.xlsx` (statik indirme kopyası)
+3. `frontend/src/test/fixtures/sample.ts` (dosyanın gerçek `/api/analyze` çıktısı)
+
+```powershell
+cd backend
+python tools/make_sample_fixtures.py
+```
+
+Komut idempotenttir: veri kümesi değişmediyse çıktıların hiçbiri değişmez.
+Satır eklemek veya açıklama düzeltmek için `app/excel/sample.py` düzenlenir,
+ardından komut yeniden çalıştırılır.
 
 ## Şablon yapısı
 

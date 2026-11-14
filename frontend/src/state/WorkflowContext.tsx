@@ -17,6 +17,7 @@ import {
   triggerDownload,
   type DownloadResult,
 } from '../lib/api'
+import { fetchSampleProjectFile } from '../lib/examples'
 import {
   buildCalculateRequest,
   approveDecision,
@@ -74,6 +75,9 @@ type State = {
   error: WorkflowError | null
   templateStatus: 'idle' | 'downloading' | 'error'
   templateError: WorkflowError | null
+  /** Örnek veri getirilirken gösterilen durum — analizden ayrıdır. */
+  sampleStatus: 'idle' | 'loading'
+  sampleError: WorkflowError | null
 }
 
 const INITIAL_STATE: State = {
@@ -88,6 +92,8 @@ const INITIAL_STATE: State = {
   error: null,
   templateStatus: 'idle',
   templateError: null,
+  sampleStatus: 'idle',
+  sampleError: null,
 }
 
 /**
@@ -116,9 +122,19 @@ export type WorkflowContextValue = {
   error: WorkflowError | null
   templateStatus: State['templateStatus']
   templateError: WorkflowError | null
+  /** Örnek veri getiriliyor mu? (`analyze` aşamasından bağımsız) */
+  sampleStatus: State['sampleStatus']
+  sampleError: WorkflowError | null
 
   /** Dosyayı analiz eder; hata durumunda `error` dolar. */
-  analyze: (file: File) => Promise<void>
+  analyze: (file: File) => Promise<boolean>
+  /**
+   * Örnek proje metrajını getirip analiz eder — dosya seçmeden.
+   *
+   * İndirme yapmaz: dosyayı `File` olarak alıp **aynı** `analyze` yoluna verir.
+   * Analiz başarıyla tamamlanırsa `true` döner.
+   */
+  loadSample: () => Promise<boolean>
   approveRow: (boqNo: string, code: string) => void
   rejectRow: (boqNo: string) => void
   clearDecision: (boqNo: string) => void
@@ -209,7 +225,7 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
   /** Devam eden analiz isteği — yeni dosya seçilirse iptal edilir. */
   const analyzeAbort = useRef<AbortController | null>(null)
 
-  const analyze = useCallback(async (file: File) => {
+  const analyze = useCallback(async (file: File): Promise<boolean> => {
     analyzeAbort.current?.abort()
     const controller = new AbortController()
     analyzeAbort.current = controller
@@ -235,6 +251,7 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
         analysis,
         error: null,
       }))
+      return true
     } catch (error) {
       // İptal edilen istek hata olarak gösterilmez: kullanıcı yeni dosya seçti.
       if (error instanceof ApiAbortError) {
@@ -243,15 +260,48 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
             ? { ...previous, stage: 'idle' }
             : previous,
         )
-        return
+        return false
       }
       setState((previous) => ({
         ...previous,
         stage: 'error',
         error: toWorkflowError('analyze', error),
       }))
+      return false
     }
   }, [])
+
+  const loadSample = useCallback(async (): Promise<boolean> => {
+    setState((previous) => ({
+      ...previous,
+      sampleStatus: 'loading',
+      sampleError: null,
+    }))
+
+    let file: File
+    try {
+      file = await fetchSampleProjectFile()
+    } catch (error) {
+      setState((previous) => ({
+        ...previous,
+        sampleStatus: 'idle',
+        sampleError: {
+          stage: 'analyze',
+          title: 'Örnek veri yüklenemedi',
+          message: 'Örnek proje metrajı alınamadı.',
+          detail: error instanceof Error ? error.message : '',
+          suggestion:
+            'Sayfayı yenileyip yeniden deneyin; ya da örnek dosyayı indirip yükleyin.',
+          issues: [],
+        },
+      }))
+      return false
+    }
+
+    setState((previous) => ({ ...previous, sampleStatus: 'idle' }))
+    // Aynı analiz yolu: demo, gerçek yüklemeden ayrı bir hesap yapmaz.
+    return analyze(file)
+  }, [analyze])
 
   const approveRow = useCallback((boqNo: string, code: string) => {
     setState((previous) => ({
@@ -354,6 +404,7 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
       ...previous,
       error: null,
       templateError: null,
+      sampleError: null,
       templateStatus: previous.templateStatus === 'error' ? 'idle' : previous.templateStatus,
       // Hata yalnızca kutu kapatıldığında değil, akış da toparlanabilsin.
       stage:
@@ -421,7 +472,10 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
       error: state.error,
       templateStatus: state.templateStatus,
       templateError: state.templateError,
+      sampleStatus: state.sampleStatus,
+      sampleError: state.sampleError,
       analyze,
+      loadSample,
       approveRow,
       rejectRow,
       clearDecision,
@@ -433,6 +487,7 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
   }, [
     state,
     analyze,
+    loadSample,
     approveRow,
     rejectRow,
     clearDecision,

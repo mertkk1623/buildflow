@@ -95,14 +95,20 @@ kullanıcı hesabı, abonelik veya çoklu proje yönetimi · veritabanı.
 
 <img src="docs/images/buildflow-report-showcase.png" alt="BuildFlow AI hesaplama sonucu ve izlenebilir Excel/PDF rapor çıktısı" width="100%">
 
-Depoda gerçek uygulamadan üretilmiş iki şablon ve bir demo metrajı bulunur:
+Depoda gerçek uygulamadan üretilmiş iki şablon ve iki demo metrajı bulunur:
 
 | Dosya | Nedir |
 |---|---|
 | [`templates/metraj_sablonu.xlsx`](templates/metraj_sablonu.xlsx) | Kullanıcıya verilecek boş metraj şablonu (kullanım sayfası dahil) |
 | [`templates/ornek_metraj.xlsx`](templates/ornek_metraj.xlsx) | 18 satırlık demo metraj — eksik açıklama, farklı birim ve belirsiz varyant içerir |
+| [`templates/proje_ornek_metraj.xlsx`](templates/proje_ornek_metraj.xlsx) | 40 satırlık kapsamlı örnek proje — 14 katalog kaleminin tamamı, 5 onay bekleyen satır, 3 kapsam dışı satır |
 | [`docs/examples/ornek-satin-alma-raporu.xlsx`](docs/examples/ornek-satin-alma-raporu.xlsx) | Bu demo metrajından üretilmiş gerçek Excel raporu |
 | [`docs/examples/ornek-satin-alma-raporu.pdf`](docs/examples/ornek-satin-alma-raporu.pdf) | Aynı hesaplamadan üretilmiş gerçek PDF raporu (2 sayfa) |
+
+`proje_ornek_metraj.xlsx`, ana sayfadaki **Hızlı başlangıç ve örnek veri**
+bölümünün arkasındadır: indirilebilir, ayrıca "Hemen dene" düğmesi dosyayı
+indirmeden aynı analiz yoluna verir. Statik kopyası
+`frontend/public/examples/proje-ornek-metraj.xlsx` adıyla sunulur.
 
 ![PDF raporu](docs/images/08-pdf-rapor.png)
 
@@ -167,7 +173,7 @@ V1 tamamlanmıştır: metraj yükleme, deterministik hesap, AI destekli eşleşt
 kullanıcı onayı ve Excel/PDF raporlama uçtan uca çalışır. Arayüz prototip veri
 kullanmaz; altı endpoint'in tamamı gerçek servisten beslenir.
 
-Doğrulama: backend 871 test, frontend 178 test, üretim derlemesi ve CI yeşil.
+Doğrulama: backend 993 test, frontend 202 test, üretim derlemesi ve CI yeşil.
 
 ## Yol haritası
 

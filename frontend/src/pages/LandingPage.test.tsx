@@ -2,8 +2,9 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
-import { callsTo, fileResponse, installFetchMock } from '../test/server'
+import { callsTo, fileResponse, installFetchMock, jsonResponse } from '../test/server'
 import { renderApp } from '../test/harness'
+import { SAMPLE_ANALYSIS } from '../test/fixtures/sample'
 
 /**
  * Ana sayfa (ürün tanıtımı) testleri.
@@ -17,6 +18,8 @@ import { renderApp } from '../test/harness'
  *    ikisi karışmaz.
  * 4. AI, sabit bir açık/kapalı iddiası yerine yapılandırmaya bağlı olarak
  *    anlatılır; kapsamı (yalnızca pending, otomatik onay yok) doğru verilir.
+ * 5. "Hemen dene" **indirme yapmaz**: örnek dosyayı alıp gerçek analiz
+ *    yoluna verir. Ayrı bir demo hesaplaması yoktur.
  */
 
 const XLSX_MIME =
@@ -27,6 +30,15 @@ function templateHandler() {
     filename: 'buildflow-metraj-sablonu.xlsx',
     contentType: XLSX_MIME,
     disposition: 'plain',
+  })
+}
+
+/** Statik örnek dosya — `fetch` ile alınır (indirme değil). */
+function sampleFileHandler() {
+  return fileResponse('sample-xlsx-bytes', {
+    filename: 'proje-ornek-metraj.xlsx',
+    contentType: XLSX_MIME,
+    disposition: 'none',
   })
 }
 
@@ -191,5 +203,148 @@ describe('LandingPage', () => {
 
     const cta = screen.getByRole('link', { name: /Canlı demoyu başlat/ })
     expect(cta).toHaveAttribute('href', '/upload')
+  })
+
+  describe('hızlı başlangıç paneli', () => {
+    it('üç eylemi ve bilgi notunu bir arada sunar', () => {
+      installFetchMock()
+      renderApp('/')
+
+      const panel = document.querySelector('#hizli-baslangic') as HTMLElement
+      expect(panel).not.toBeNull()
+
+      expect(
+        within(panel).getByRole('button', {
+          name: /Örnek Veri ile Hemen Dene \(AI Demo\)/,
+        }),
+      ).toBeInTheDocument()
+      expect(
+        within(panel).getByRole('button', { name: /Boş Veri Şablonunu İndir/ }),
+      ).toBeInTheDocument()
+
+      const download = panel.querySelector<HTMLAnchorElement>(
+        'a[href="/examples/proje-ornek-metraj.xlsx"]',
+      )
+      expect(download).not.toBeNull()
+      expect(download).toHaveAttribute('download', 'proje-ornek-metraj.xlsx')
+
+      // Bilgi notu: hangi AI özelliklerinin test edildiği açıkça yazılmalı.
+      // Metin vurgu span'larına bölündüğü için tek bir cümle olarak okunur.
+      const note = within(panel).getByText((_, element) => {
+        if (element?.tagName !== 'P') return false
+        const text = element.textContent ?? ''
+        return [
+          'AI eşleştirme önerisi',
+          'onay akışı',
+          'kapsam dışı satır raporlaması',
+          'gerçekçi senaryolar',
+        ].every((part) => text.includes(part))
+      })
+      expect(note).toBeInTheDocument()
+    })
+
+    it('boş şablonu sunucudan indirir', async () => {
+      const { calls } = installFetchMock({
+        'GET /api/template': templateHandler,
+      })
+      renderApp('/')
+
+      const panel = document.querySelector('#hizli-baslangic') as HTMLElement
+      await userEvent.click(
+        within(panel).getByRole('button', { name: /Boş Veri Şablonunu İndir/ }),
+      )
+
+      expect(callsTo(calls, 'GET', '/api/template')).toHaveLength(1)
+    })
+
+    it('örnek veriyi dosya indirmeden analiz eder', async () => {
+      const { calls } = installFetchMock({
+        'GET /examples/proje-ornek-metraj.xlsx': sampleFileHandler,
+        'POST /api/analyze': () => jsonResponse(SAMPLE_ANALYSIS),
+      })
+      renderApp('/')
+
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: /Örnek Veri ile Hemen Dene \(AI Demo\)/,
+        }),
+      )
+
+      // Dosya **indirilmez**: statik dosya `fetch` ile alınır ve aynı
+      // `/api/analyze` yoluna verilir.
+      expect(
+        callsTo(calls, 'GET', '/examples/proje-ornek-metraj.xlsx'),
+      ).toHaveLength(1)
+      const analyzeCalls = callsTo(calls, 'POST', '/api/analyze')
+      expect(analyzeCalls).toHaveLength(1)
+
+      const uploaded = analyzeCalls[0].form?.get('file')
+      expect(uploaded).toBeInstanceOf(File)
+      expect((uploaded as File).name).toBe('proje-ornek-metraj.xlsx')
+
+      // Analiz ekranına geçilir ve gerçek sunucu özeti gösterilir.
+      expect(
+        await screen.findByRole('heading', { name: 'Metraj analizi' }),
+      ).toBeInTheDocument()
+      expect(screen.getByText('40 satır · sunucu yanıtı')).toBeInTheDocument()
+      expect(screen.getByText('proje-ornek-metraj.xlsx')).toBeInTheDocument()
+    })
+
+    it('örnek dosya alınamazsa analiz başlatmaz, hata gösterir', async () => {
+      const { calls } = installFetchMock({
+        'GET /examples/proje-ornek-metraj.xlsx': () =>
+          new Response('yok', { status: 404 }),
+      })
+      renderApp('/')
+
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: /Örnek Veri ile Hemen Dene \(AI Demo\)/,
+        }),
+      )
+
+      expect(await screen.findByText(/Örnek proje metrajı alınamadı/)).toBeInTheDocument()
+      // Ağ çağrısı yapılmadı: yükleme akışı hiç başlamadı.
+      expect(callsTo(calls, 'POST', '/api/analyze')).toHaveLength(0)
+      // Ana sayfada kalınır.
+      expect(
+        screen.getByRole('heading', {
+          name: /Metrajı incelenmiş bir satın alma listesine çevirin/,
+        }),
+      ).toBeInTheDocument()
+    })
+
+    it('analiz hata verirse analiz ekranına geçmez', async () => {
+      installFetchMock({
+        'GET /examples/proje-ornek-metraj.xlsx': sampleFileHandler,
+        'POST /api/analyze': () =>
+          jsonResponse(
+            {
+              error: {
+                code: 'corrupt-file',
+                message: 'Dosya geçerli bir .xlsx paketi değil.',
+                detail: '',
+                suggestion: '',
+                issues: [],
+              },
+            },
+            422,
+          ),
+      })
+      renderApp('/')
+
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: /Örnek Veri ile Hemen Dene \(AI Demo\)/,
+        }),
+      )
+
+      // Hata ana sayfada değil, akışta görünür; kullanıcı yükleme adımına gider.
+      expect(
+        await screen.findByRole('heading', {
+          name: /Metrajı incelenmiş bir satın alma listesine çevirin/,
+        }),
+      ).toBeInTheDocument()
+    })
   })
 })

@@ -33,7 +33,7 @@ Excel ──▶ POST /api/analyze ──▶ satır kararları (kullanıcı)
 
 | # | Rota | Görev |
 |---|---|---|
-| — | `/` | Ürün tanıtımı, kapsam, akış özeti |
+| — | `/` | Ürün tanıtımı, kapsam, akış özeti ve **hızlı başlangıç** (örnek veriyle deneme, boş/dolu dosya indirme) |
 | 01 | `/upload` | Metraj yükleme, şablon indirme, satır/kolon gereksinimleri |
 | 02 | `/analysis` | Sunucu yanıtının dağılımı: kural / onay bekleyen / hariç |
 | 03 | `/review` | Satır bazlı karar: aday seç, onayla, reddet |
@@ -75,4 +75,10 @@ Testler ağ çağrısını `fetch` düzeyinde taklit eder; sahte state kurulmaz.
 test "ekranda ne var" ile "sunucuya ne gitti"yi aynı akışta doğrular. Beklenmeyen
 bir istek testi açıkça düşürür, böylece sessiz sahte başarı oluşmaz. Fixture'lar
 elle uydurulmadı: gerçek backend yanıtlarından üretildi
-(`src/test/fixtures/`).
+(`src/test/fixtures/`). Örnek proje verisi de aynı kurala uyar:
+`src/test/fixtures/sample.ts` içeriği `templates/proje_ornek_metraj.xlsx`
+dosyasının gerçek `/api/analyze` çıktısıdır ve
+`backend/tools/make_sample_fixtures.py` ile yeniden üretilir. Ana sayfadaki
+"Örnek Veri ile Hemen Dene" düğmesi ayrı bir hesap yolu açmaz: statik `.xlsx`
+dosyasını `fetch` ile alıp `File` nesnesine sararak normal yükleme akışına
+verir, böylece demo da üretimdeki yolun aynısını kullanır.
