@@ -1,1 +1,11 @@
 * text=auto eol=lf
+
+# Binary artifacts — satır sonu dönüşümü ve diff uygulanmaz.
+*.xlsx binary
+*.xls binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.woff2 binary

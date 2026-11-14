@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections import Counter
 from decimal import Decimal
 from pathlib import Path
+import zipfile
 
 import pytest
 from openpyxl import load_workbook
@@ -37,6 +38,17 @@ from app.excel.sample import (
 EXPECTED_ROWS = 40
 EXPECTED_PENDING = 5
 EXPECTED_EXCLUDED = 3
+
+
+def _archive_contents(path: Path) -> dict[str, bytes]:
+    """XLSX paketini açıp dosya adı → ham içerik olarak döndürür.
+
+    Ham `.xlsx` baytları yerine bu kullanılır: ZIP'in sıkıştırılmış çıktısı
+    platformun zlib uygulamasına göre değişebilir (zlib-ng / standart zlib),
+    bu yüzden bayt eşitliği güvenilir bir sözleşme değildir.
+    """
+    with zipfile.ZipFile(path) as archive:
+        return {name: archive.read(name) for name in archive.namelist()}
 
 
 @pytest.fixture(scope="module")
@@ -107,15 +119,15 @@ class TestFileStructure:
             row.boq_no for row in SAMPLE_ROWS
         ]
 
-    def test_output_is_byte_reproducible(self, tmp_path: Path) -> None:
-        """Aynı veri kümesi aynı baytları üretmeli.
+    def test_output_is_reproducible(self, tmp_path: Path) -> None:
+        """Aynı veri kümesi aynı **çalışma kitabını** üretmeli.
 
-        Dosya commit'lendiği için zaman damgası sızarsa her yeniden üretim
-        depoyu gereksiz yere kirletir ve inceleme gürültüye boğulur.
+        Ham bayt yerine açılmış içerik karşılaştırılır: ZIP sıkıştırması
+        platformun zlib uygulamasına bağlıdır, sözleşme içeriktir.
         """
-        first = build_sample_workbook(tmp_path / "birinci.xlsx").read_bytes()
-        second = build_sample_workbook(tmp_path / "ikinci.xlsx").read_bytes()
-        assert first == second
+        first = build_sample_workbook(tmp_path / "birinci.xlsx")
+        second = build_sample_workbook(tmp_path / "ikinci.xlsx")
+        assert _archive_contents(first) == _archive_contents(second)
 
     def test_timestamps_are_pinned(self, sample_path: Path) -> None:
         workbook = load_workbook(sample_path)
@@ -348,13 +360,14 @@ class TestCommittedFiles:
     def test_kopyalar_ayni_baytlari_tasir(self) -> None:
         """README: `public/examples/` kopyası `templates/` ile birebir aynıdır.
 
-        Üretim sabit zaman damgası kullandığı için bayt karşılaştırması
-        güvenilirdir; içerik karşılaştırması da okunabilirlik için korunur.
+        Karşılaştırma açılmış içerik üzerinden yapılır: dosyalar farklı
+        platformlarda üretilse bile ZIP sıkıştırması baytları değiştirebilir,
+        sözleşme ise aynı çalışma kitabıdır.
         """
         source_path = self.REPO_ROOT / "templates/proje_ornek_metraj.xlsx"
         copy_path = self.REPO_ROOT / "frontend/public/examples/proje-ornek-metraj.xlsx"
 
-        assert source_path.read_bytes() == copy_path.read_bytes()
+        assert _archive_contents(source_path) == _archive_contents(copy_path)
 
         source = read_metraj(source_path)
         copy = read_metraj(copy_path)
@@ -375,10 +388,15 @@ class TestCommittedFiles:
         assert source.sheet_name == copy.sheet_name
 
     def test_committed_file_matches_generator(self, tmp_path: Path) -> None:
-        """Depodaki dosya bayatlamamalı: üretici aynı baytları vermeli."""
+        """Depodaki dosya bayatlamamalı: üretici aynı **içeriği** vermeli.
+
+        Ham bayt karşılaştırması yapılmaz: ZIP sıkıştırması platformun zlib
+        uygulamasına bağlıdır (ör. zlib-ng ile standart zlib aynı girdi için
+        farklı bayt üretir). Sözleşme, açılmış içeriğin birebir aynı olmasıdır.
+        """
         rebuilt = build_sample_workbook(tmp_path / "yeniden.xlsx")
         committed = self.REPO_ROOT / "templates/proje_ornek_metraj.xlsx"
-        assert rebuilt.read_bytes() == committed.read_bytes(), (
+        assert _archive_contents(rebuilt) == _archive_contents(committed), (
             "templates/proje_ornek_metraj.xlsx bayat. "
             "`python tools/make_sample_fixtures.py` çalıştırın."
         )
