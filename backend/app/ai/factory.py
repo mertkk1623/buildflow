@@ -29,11 +29,17 @@ def build_provider(
     base_url: str | None = None,
     model: str | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    reasoning_effort: str | None = "none",
+    json_mode: bool = False,
 ) -> AiProvider:
     """Yapılandırmadan sağlayıcı üretir.
 
     Eksik/geçersiz yapılandırma istisna **fırlatmaz**: güvenli varsayılana
     (``NoneProvider``) düşer ve sunucu logunda uyarır. API anahtarı loglanmaz.
+
+    ``reasoning_effort`` ve ``json_mode`` varsayılanları Deploy.com
+    dokümanına göredir: düşünme kapalı (``none``), JSON modu **istenmez**
+    (alan dokümante edilmemiş; biçim istem + doğrulama ile güvence altında).
     """
     normalized = (name or "none").strip().lower()
 
@@ -69,6 +75,8 @@ def build_provider(
         api_key=api_key,
         model=model,
         timeout_seconds=timeout_seconds,
+        reasoning_effort=reasoning_effort,
+        json_mode=json_mode,
     )
 
 

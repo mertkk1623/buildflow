@@ -52,15 +52,44 @@ açıklamanın katalogla örtüşme derecesini gösterir.
 
 ## Yapılandırma
 
-AI'yı etkinleştirmek için `.env` dosyasında:
+AI'yı etkinleştirmek için `.env` dosyasında (örnek: Deploy.com):
 
 ```ini
 BUILDFLOW_AI_PROVIDER=openai-compatible
-BUILDFLOW_AI_BASE_URL=https://api.openai.com/v1
-BUILDFLOW_AI_MODEL=gpt-4o-mini
+BUILDFLOW_AI_BASE_URL=https://api-cdn.deploy.com/api/v1
+BUILDFLOW_AI_MODEL=deepseek-ai/deepseek-v4.1-flash-1017
 BUILDFLOW_AI_API_KEY=...          # yalnızca ortam değişkeninden okunur
 BUILDFLOW_AI_TIMEOUT_SECONDS=10
 ```
+
+Sağlayıcı **OpenAI uyumlu** herhangi bir uç nokta olabilir. İstem
+gövdesinde gönderilen alanlar:
+
+| Alan | Değer | Not |
+|---|---|---|
+| `model` | yapılandırmadan | — |
+| `messages` | sistem + kullanıcı | — |
+| `temperature` | `0` | deterministik öneri |
+| `max_completion_tokens` | `512` | Deploy.com alan adı |
+| `reasoning_effort` | `none` | düşünmeyi kapatır (Deploy varsayılanı `high`) |
+
+`response_format` **gönderilmez**: Deploy.com dokümanı bu alanı listelemez.
+JSON biçimi istemle istenir ve :mod:`app.ai.validate` içinde katı şemayla
+doğrulanır; model yanıtı kod bloğuna sarar veya kısa bir giriş cümlesi eklerse
+tek JSON nesnesi çıkarılır, şema katılığı korunur.
+
+### Hata kodları
+
+| HTTP | Dönen kod | Anlamı |
+|---|---|---|
+| `400` | `provider-invalid-request` | Gövde/alan hatası |
+| `401` | `provider-auth-failed` | Anahtar geçersiz/süresi dolmuş |
+| `402`, `405` | `provider-insufficient-balance` | Bakiye/kota yok |
+| `429` | `provider-rate-limited` | Hız sınırı |
+| `5xx` | `provider-error` | Sunucu arızası |
+
+Yanıt gövdesi **hiç okunmaz**; yalnızca durum kodu sınıflanır. Böylece
+sağlayıcı metni (PII/anahtar izi) hiçbir yere taşınmaz.
 
 API anahtarı yanıtta, hata mesajında ve logda **görünmez**. Eksik ya da geçersiz
 yapılandırma uygulamayı durdurmaz; sunucu uyarı loglar ve AI'yı devre dışı

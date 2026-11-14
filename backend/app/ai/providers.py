@@ -32,20 +32,35 @@ DEFAULT_TIMEOUT_SECONDS = 10.0
 #: Yanıtın üst sınırı. JSON yanıtı kısa olduğu için cömert bir değer yeterlidir;
 #: sınır verilmezse sağlayıcı varsayılanı (bazı modellerde 64K) kullanılır ve
 #: yanıt gereksiz yere uzayabilir.
+#:
+#: Not: Deploy.com bu alanı ``max_completion_tokens`` adıyla bekler; eski
+#: ``max_tokens`` adı dokümante edilmemiştir (bkz. :data:`_TOKEN_LIMIT_FIELD`).
 DEFAULT_MAX_TOKENS = 512
+
+#: Deploy.com'un token sınırı için beklediği alan adı.
+#:
+#: Doküman (``deepseek-v4-1-flash-1017``) yalnızca ``max_completion_tokens``
+#: listeler. Sınır gönderilmezse model düşünme (`reasoning`) token'larıyla
+#: birlikte uzun üretebilir; bu yüzden açıkça gönderilir.
+_TOKEN_LIMIT_FIELD = "max_completion_tokens"
 
 #: HTTP durum kodlarının güvenli hata türlerine eşlemesi.
 #:
 #: Neden ayrı türler: tek bir ``provider-error`` altında toplandığında
-#: "anahtar mı geçersiz, bakiye mi bitti, model adı mı emekli" ayırt edilemiyordu.
+#: "anahtar mı geçersiz, bakiye mi bitti, model adı mı hatalı" ayırt edilemiyordu.
 #: Eşleme yalnızca **durum koduna** dayanır; yanıt gövdesi hiç okunmaz, böylece
 #: sağlayıcı metni (potansiyel olarak PII/anahtar izi) hiçbir yere taşınmaz.
+#:
+#: 405 istisnadır ve doküman gereği **bakiye** anlamına gelir: Deploy.com
+#: bakiyesi olmayan kuruluşlara ``405`` + "Your Organization is currently
+#: paused" döndürür. Bu, ``402`` ile aynı güvenli türe eşlenir.
 _HTTP_STATUS_KINDS: dict[int, AiErrorKind] = {
     400: AiErrorKind.INVALID_REQUEST,
     401: AiErrorKind.AUTH_FAILED,
     402: AiErrorKind.INSUFFICIENT_BALANCE,
     403: AiErrorKind.AUTH_FAILED,
     404: AiErrorKind.INVALID_REQUEST,
+    405: AiErrorKind.INSUFFICIENT_BALANCE,
     408: AiErrorKind.UNAVAILABLE,
     413: AiErrorKind.INVALID_REQUEST,
     422: AiErrorKind.INVALID_REQUEST,
@@ -127,15 +142,17 @@ class OpenAICompatibleProvider:
         api_key: str,
         model: str,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-        max_tokens: int = DEFAULT_MAX_TOKENS,
-        disable_thinking: bool = False,
+        max_completion_tokens: int = DEFAULT_MAX_TOKENS,
+        reasoning_effort: str | None = "none",
+        json_mode: bool = False,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._model = model
         self._timeout = timeout_seconds
-        self._max_tokens = max_tokens
-        self._disable_thinking = disable_thinking
+        self._max_completion_tokens = max_completion_tokens
+        self._reasoning_effort = reasoning_effort
+        self._json_mode = json_mode
 
     def __repr__(self) -> str:  # pragma: no cover - anahtar sızmasın
         return (
@@ -152,21 +169,25 @@ class OpenAICompatibleProvider:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "response_format": {"type": "json_object"},
-            # Yanıt kısa bir JSON nesnesidir; sınır verilmezse model gereksiz
-            # uzun üretim yapabilir veya yanıt kesilebilir.
-            "max_tokens": self._max_tokens,
+            # Deploy.com token sınırı alanı: ``max_completion_tokens``.
+            # Eski ``max_tokens`` adı dokümante edilmemiştir.
+            _TOKEN_LIMIT_FIELD: self._max_completion_tokens,
         }
 
-        if self._disable_thinking:
-            # Yalnızca isteğe bağlı (opt-in) gönderilir: ``thinking`` standart
-            # OpenAI alanı **değildir**. DeepSeek bunu OpenAI biçiminde kabul
-            # eder, ancak katı uç noktalar bilinmeyen alanda 400 döndürür
-            # ("Unrecognized request argument supplied"). Bu yüzden varsayılan
-            # kapalıdır ve sağlayıcı bunu destekliyorsa açıkça etkinleştirilir.
-            # Thinking modu DeepSeek'te varsayılan AÇIK olduğu için kapatmak
-            # gecikmeyi azaltır ve ``temperature`` alanını anlamlı kılar.
-            body["thinking"] = {"type": "disabled"}
+        if self._reasoning_effort is not None:
+            # Deploy.com: ``reasoning_effort`` ∈ {none, low, high, max},
+            # varsayılan ``high``. ``none`` düşünmeyi kapatır ve modeli normal
+            # sohbet modeli gibi davrandırır. Bu görev yalnızca sınıflandırma
+            # olduğu için varsayılan ``none``: gecikme ve düşünme token'ı
+            # maliyeti düşer, ``temperature`` anlamlı kalır.
+            body["reasoning_effort"] = self._reasoning_effort
+
+        if self._json_mode:
+            # Yalnızca isteğe bağlı. Deploy.com dokümanı ``response_format``
+            # alanını **listelemez**; gönderilmesi 400'e yol açabilir. Bu yüzden
+            # varsayılan kapalıdır ve JSON biçimi istem + katı doğrulama ile
+            # güvence altına alınır (bkz. :mod:`app.ai.validate`).
+            body["response_format"] = {"type": "json_object"}
 
         payload = json.dumps(body).encode("utf-8")
 

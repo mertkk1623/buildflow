@@ -271,8 +271,8 @@ class TestHttpProvider:
         assert captured["body"]["temperature"] == 0
         assert captured["body"]["messages"][0]["role"] == "system"
 
-    def test_request_body_carries_json_mode_and_token_limit(self, monkeypatch) -> None:
-        """DeepSeek uyumu: JSON modu + max_tokens; standart dışı alan yok."""
+    def test_request_body_carries_deploy_token_limit(self, monkeypatch) -> None:
+        """Deploy.com: token sınırı ``max_completion_tokens`` alanıyla gider."""
         captured: dict = {}
 
         def fake_urlopen(request, timeout):
@@ -284,14 +284,13 @@ class TestHttpProvider:
         self._provider().suggest("s", "u")
 
         body = captured["body"]
-        assert body["response_format"] == {"type": "json_object"}
-        assert body["max_tokens"] == 512
-        # ``thinking`` standart OpenAI alanı değildir; varsayılan gövdede
-        # bulunmamalı, aksi hâlde katı uç noktalar 400 döndürür.
-        assert "thinking" not in body
+        assert body["max_completion_tokens"] == 512
+        # Eski alan adı gönderilmez: Deploy dokümanı yalnızca
+        # ``max_completion_tokens`` listeler.
+        assert "max_tokens" not in body
 
-    def test_thinking_can_be_disabled_explicitly(self, monkeypatch) -> None:
-        """DeepSeek'te thinking modu yalnızca açıkça istenirse kapatılır."""
+    def test_response_format_is_opt_in(self, monkeypatch) -> None:
+        """``response_format`` Deploy dokümanında yok; varsayılan gönderilmez."""
         captured: dict = {}
 
         def fake_urlopen(request, timeout):
@@ -300,9 +299,40 @@ class TestHttpProvider:
 
         monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
-        self._provider(disable_thinking=True).suggest("s", "u")
+        self._provider().suggest("s", "u")
+        assert "response_format" not in captured["body"]
 
-        assert captured["body"]["thinking"] == {"type": "disabled"}
+        self._provider(json_mode=True).suggest("s", "u")
+        assert captured["body"]["response_format"] == {"type": "json_object"}
+
+    def test_reasoning_effort_none_by_default(self, monkeypatch) -> None:
+        """Deploy: ``reasoning_effort='none'`` düşünmeyi kapatır (varsayılan high)."""
+        captured: dict = {}
+
+        def fake_urlopen(request, timeout):
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return ok_response('{"status": "no_match"}')
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        self._provider().suggest("s", "u")
+
+        assert captured["body"]["reasoning_effort"] == "none"
+        # DeepSeek'e özgü ``thinking`` alanı Deploy sözleşmesinde yok.
+        assert "thinking" not in captured["body"]
+
+    def test_reasoning_effort_can_be_overridden(self, monkeypatch) -> None:
+        captured: dict = {}
+
+        def fake_urlopen(request, timeout):
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return ok_response('{"status": "no_match"}')
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        self._provider(reasoning_effort="high").suggest("s", "u")
+
+        assert captured["body"]["reasoning_effort"] == "high"
 
     def test_http_429_becomes_rate_limited(self, monkeypatch) -> None:
         def fake_urlopen(request, timeout):
@@ -343,12 +373,17 @@ class TestHttpProvider:
             (403, AiErrorKind.AUTH_FAILED),
             (404, AiErrorKind.INVALID_REQUEST),
             (422, AiErrorKind.INVALID_REQUEST),
+            (405, AiErrorKind.INSUFFICIENT_BALANCE),
         ],
     )
     def test_http_status_is_classified_safely(
         self, monkeypatch, status: int, expected: AiErrorKind
     ) -> None:
-        """Her durum kodu kendi güvenli türüne ayrılır (hepsi tek türe düşmez)."""
+        """Her durum kodu kendi güvenli türüne ayrılır (hepsi tek türe düşmez).
+
+        ``405`` Deploy.com'da "kuruluş bakiyesi yok" anlamına gelir ve
+        ``402`` ile aynı güvenli türe eşlenir.
+        """
 
         def fake_urlopen(request, timeout):
             raise urllib.error.HTTPError(
@@ -537,7 +572,7 @@ class TestJsonModeEdgeCases:
 
 
 class TestPromptJsonModeCompatibility:
-    """DeepSeek: ``response_format=json_object`` için prompt'ta 'json' geçmeli."""
+    """JSON biçimi istemle istenir (Deploy'da ``response_format`` yok)."""
 
     def test_system_prompt_contains_lowercase_json(self) -> None:
         from app.ai.prompt import SYSTEM_PROMPT
@@ -553,8 +588,96 @@ class TestPromptJsonModeCompatibility:
         assert "ağırlık" in lowered
 
     def test_request_and_prompt_are_consistent(self) -> None:
-        """JSON modu isteniyorsa prompt da bunu söylemeli; ayrışmamalı."""
+        """JSON biçimi istemle istenir; sağlayıcı ayrıntısı isteme sızmaz."""
         from app.ai.prompt import SYSTEM_PROMPT
 
         assert "response_format" not in SYSTEM_PROMPT  # sağlayıcı ayrıntısı sızmaz
         assert "json" in SYSTEM_PROMPT
+
+
+class TestEmbeddedJsonParsing:
+    """Deploy.com ``response_format`` sunmadığı için JSON metne gömülebilir.
+
+    Tolerans yalnızca **zarf** düzeyindedir: tek bir JSON nesnesi bulunur,
+    ardından katı şema doğrulaması aynen uygulanır. Gevşek kabul yoktur.
+    """
+
+    VALID = {
+        "status": "suggested",
+        "suggested_code": "IPE-200-S235",
+        "confidence": 0.9,
+        "reason": "ölçü ve kalite uyuşuyor",
+    }
+
+    def _payload(self) -> str:
+        import json
+
+        return json.dumps(self.VALID, ensure_ascii=False)
+
+    def test_plain_json_is_accepted(self) -> None:
+        from app.ai.validate import parse_suggestion
+
+        result = parse_suggestion(self._payload(), candidates=("IPE-200-S235",))
+
+        assert result.suggested_code == "IPE-200-S235"
+
+    def test_markdown_fence_is_accepted(self) -> None:
+        from app.ai.validate import parse_suggestion
+
+        text = f"```json\n{self._payload()}\n```"
+
+        result = parse_suggestion(text, candidates=("IPE-200-S235",))
+
+        assert result.suggested_code == "IPE-200-S235"
+
+    def test_leading_prose_is_tolerated(self) -> None:
+        """Model kısa bir giriş cümlesi eklese bile nesne çıkarılır."""
+        from app.ai.validate import parse_suggestion
+
+        text = f"İşte sonuç: {self._payload()} Umarım yardımcı olur."
+
+        result = parse_suggestion(text, candidates=("IPE-200-S235",))
+
+        assert result.suggested_code == "IPE-200-S235"
+
+    def test_prose_without_json_is_rejected(self) -> None:
+        from app.ai.validate import AiValidationError, parse_suggestion
+
+        with pytest.raises(AiValidationError):
+            parse_suggestion("Merhaba, eşleştirme yapamadım.", candidates=("A",))
+
+    def test_braces_in_strings_do_not_confuse_extraction(self) -> None:
+        """Dize içindeki süslü parantezler çıkarımı bozmamalı."""
+        import json
+
+        from app.ai.validate import parse_suggestion
+
+        payload = dict(self.VALID, reason="kod {parantez} içeriyor")
+        text = f"açıklama {{\"bozuk\": }} {json.dumps(payload, ensure_ascii=False)}"
+
+        result = parse_suggestion(text, candidates=("IPE-200-S235",))
+
+        assert result.reason == "kod {parantez} içeriyor"
+
+    def test_schema_is_still_strict_for_embedded_json(self) -> None:
+        """Zarf toleransı şema katılığını gevşetmez."""
+        import json
+
+        from app.ai.validate import AiValidationError, parse_suggestion
+
+        payload = dict(self.VALID, quantity="99999")
+        text = f"sonuç: {json.dumps(payload, ensure_ascii=False)}"
+
+        with pytest.raises(AiValidationError):
+            parse_suggestion(text, candidates=("IPE-200-S235",))
+
+    def test_out_of_catalog_code_is_still_rejected(self) -> None:
+        import json
+
+        from app.ai.validate import AiValidationError, parse_suggestion
+
+        payload = dict(self.VALID, suggested_code="UYDURMA-999")
+        text = f"sonuç: {json.dumps(payload, ensure_ascii=False)}"
+
+        with pytest.raises(AiValidationError):
+            parse_suggestion(text, candidates=("IPE-200-S235",))

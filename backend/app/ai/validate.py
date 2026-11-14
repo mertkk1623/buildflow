@@ -123,7 +123,15 @@ def parse_suggestion(text: str, *, candidates: Iterable[str]) -> AiSuggestion:
 
 
 def _decode(text: str) -> object:
-    """Metni JSON'a çevirir; tek bir markdown çitini soyar."""
+    """Metni JSON'a çevirir; markdown çitini ve çevre metnini tolere eder.
+
+    Neden toleranslı: Deploy.com dokümanı ``response_format=json_object``
+    alanını **listelemez**. JSON modu istemle istenir ama garanti edilmez;
+    model yanıtı bir kod bloğuna sarabilir veya kısa bir giriş cümlesi
+    ekleyebilir. Buradaki çözüm **gevşek kabul değildir**: yalnızca tek bir
+    JSON nesnesi çıkarılır ve ardından katı şema doğrulaması aynen uygulanır
+    (fazla/eksik alan, katalog dışı kod vb. yine reddedilir).
+    """
     cleaned = text.strip()
     if not cleaned:
         raise AiValidationError(AiErrorKind.INVALID_PAYLOAD, "Yanıt boş.")
@@ -134,10 +142,42 @@ def _decode(text: str) -> object:
 
     try:
         return json.loads(cleaned)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Metnin içine gömülü tek bir JSON nesnesi ara (kod bloğu olmadan).
+    embedded = _extract_embedded_object(cleaned)
+    if embedded is None:
+        raise AiValidationError(
+            AiErrorKind.INVALID_PAYLOAD, "JSON çözümlenemedi."
+        )
+
+    try:
+        return json.loads(embedded)
     except (json.JSONDecodeError, ValueError) as exc:
         raise AiValidationError(
             AiErrorKind.INVALID_PAYLOAD, f"JSON çözümlenemedi: {exc}"
         ) from exc
+
+
+def _extract_embedded_object(text: str) -> str | None:
+    """Metindeki ilk dengeli ``{...}`` bloğunu döndürür.
+
+    Metin içindeki süslü parantezler dize değerlerinde de geçebileceği için
+    naif bir sayaç yerine ``json.JSONDecoder.raw_decode`` ile her ``{``
+    konumundan itibaren çözümleme denenir. Yalnızca **nesne** kabul edilir.
+    """
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            value, end = decoder.raw_decode(text, index)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(value, dict):
+            return text[index:end]
+    return None
 
 
 def _parse_status(value: object) -> AiStatus:
